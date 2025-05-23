@@ -519,7 +519,7 @@ always @* begin
 						    queue_ram_be[8] = 1'b1; 
                         end else begin
                             queue_ram_be[8] = 1'b1;
-                            queue_ram_write_data[71:64] = axil_reg_pipeline_function_id_reg[PIPELINE-1]
+                            queue_ram_write_data[71:64] = axil_reg_pipeline_function_id_reg[PIPELINE-1];
                         end
                     end
                     32'h8002zzzz: begin
