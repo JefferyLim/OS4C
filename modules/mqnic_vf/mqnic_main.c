@@ -674,8 +674,8 @@ static int mqnic_pci_probe(struct pci_dev *pdev, const struct pci_device_id *ent
 	ret = mqnic_common_probe(mqnic);
 	if (ret)
 		goto fail_common;
-	}
-	// probe complete
+	
+    // probe complete
 	return 0;
 
 	// error handling
