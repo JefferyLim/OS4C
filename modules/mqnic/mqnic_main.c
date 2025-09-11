@@ -40,6 +40,7 @@ MODULE_PARM_DESC(link_status_poll,
 #ifdef CONFIG_PCI
 static const struct pci_device_id mqnic_pci_id_table[] = {
 	{PCI_DEVICE(0x1234, 0x1001)},
+    {PCI_DEVICE(0x1234, 0x0000)},
 	{PCI_DEVICE(0x5543, 0x1001)},
 	{0 /* end */ }
 };
@@ -509,6 +510,202 @@ static void mqnic_common_remove(struct mqnic_dev *mqnic)
 }
 
 #ifdef CONFIG_PCI
+static int mqnic_vf_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+{
+
+    int ret = 0;
+	struct mqnic_dev *mqnic;
+	struct devlink *devlink;
+	struct device *dev = &pdev->dev;
+	struct pci_dev *bridge = pci_upstream_bridge(pdev);
+
+	dev_info(dev, DRIVER_NAME "VF PCI probe");
+	dev_info(dev, " Vendor: 0x%04x", pdev->vendor);
+	dev_info(dev, " Device: 0x%04x", pdev->device);
+	dev_info(dev, " Subsystem vendor: 0x%04x", pdev->subsystem_vendor);
+	dev_info(dev, " Subsystem device: 0x%04x", pdev->subsystem_device);
+	dev_info(dev, " Class: 0x%06x", pdev->class);
+	dev_info(dev, " PCI ID: %04x:%02x:%02x.%d", pci_domain_nr(pdev->bus),
+			pdev->bus->number, PCI_SLOT(pdev->devfn), PCI_FUNC(pdev->devfn));
+
+	if (pdev->pcie_cap) {
+		u16 devctl;
+		u32 lnkcap;
+		u16 lnkctl;
+		u16 lnksta;
+
+		pci_read_config_word(pdev, pdev->pcie_cap + PCI_EXP_DEVCTL, &devctl);
+		pci_read_config_dword(pdev, pdev->pcie_cap + PCI_EXP_LNKCAP, &lnkcap);
+		pci_read_config_word(pdev, pdev->pcie_cap + PCI_EXP_LNKCTL, &lnkctl);
+		pci_read_config_word(pdev, pdev->pcie_cap + PCI_EXP_LNKSTA, &lnksta);
+
+		dev_info(dev, " Max payload size: %d bytes",
+				128 << ((devctl & PCI_EXP_DEVCTL_PAYLOAD) >> 5));
+		dev_info(dev, " Max read request size: %d bytes",
+				128 << ((devctl & PCI_EXP_DEVCTL_READRQ) >> 12));
+		dev_info(dev, " Read completion boundary: %d bytes",
+				lnkctl & PCI_EXP_LNKCTL_RCB ? 128 : 64);
+		dev_info(dev, " Link capability: gen %d x%d",
+				lnkcap & PCI_EXP_LNKCAP_SLS, (lnkcap & PCI_EXP_LNKCAP_MLW) >> 4);
+		dev_info(dev, " Link status: gen %d x%d",
+				lnksta & PCI_EXP_LNKSTA_CLS, (lnksta & PCI_EXP_LNKSTA_NLW) >> 4);
+		dev_info(dev, " Relaxed ordering: %s",
+				devctl & PCI_EXP_DEVCTL_RELAX_EN ? "enabled" : "disabled");
+		dev_info(dev, " Phantom functions: %s",
+				devctl & PCI_EXP_DEVCTL_PHANTOM ? "enabled" : "disabled");
+		dev_info(dev, " Extended tags: %s",
+				devctl & PCI_EXP_DEVCTL_EXT_TAG ? "enabled" : "disabled");
+		dev_info(dev, " No snoop: %s",
+				devctl & PCI_EXP_DEVCTL_NOSNOOP_EN ? "enabled" : "disabled");
+	}
+
+#ifdef CONFIG_NUMA
+	dev_info(dev, " NUMA node: %d", pdev->dev.numa_node);
+#endif
+
+	if (bridge) {
+		dev_info(dev, " PCI ID (bridge): %04x:%02x:%02x.%d", pci_domain_nr(bridge->bus),
+				bridge->bus->number, PCI_SLOT(bridge->devfn), PCI_FUNC(bridge->devfn));
+	}
+
+	if (bridge && bridge->pcie_cap) {
+		u32 lnkcap;
+		u16 lnksta;
+
+		pci_read_config_dword(bridge, bridge->pcie_cap + PCI_EXP_LNKCAP, &lnkcap);
+		pci_read_config_word(bridge, bridge->pcie_cap + PCI_EXP_LNKSTA, &lnksta);
+
+		dev_info(dev, " Link capability (bridge): gen %d x%d",
+				lnkcap & PCI_EXP_LNKCAP_SLS, (lnkcap & PCI_EXP_LNKCAP_MLW) >> 4);
+		dev_info(dev, " Link status (bridge): gen %d x%d",
+				lnksta & PCI_EXP_LNKSTA_CLS, (lnksta & PCI_EXP_LNKSTA_NLW) >> 4);
+	}
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 17, 0)
+	pcie_print_link_status(pdev);
+#endif
+
+	devlink = mqnic_devlink_alloc(dev);
+	if (!devlink)
+		return -ENOMEM;
+
+	mqnic = devlink_priv(devlink);
+	mqnic->dev = dev;
+	mqnic->pdev = pdev;
+	pci_set_drvdata(pdev, mqnic);
+
+	// assign ID and add to list
+	mqnic_assign_id(mqnic);
+
+	// Disable ASPM
+	pci_disable_link_state(pdev, PCIE_LINK_STATE_L0S |
+			PCIE_LINK_STATE_L1 | PCIE_LINK_STATE_CLKPM);
+
+	// Enable device
+	ret = pci_enable_device_mem(pdev);
+	if (ret) {
+		dev_err(dev, "Failed to enable PCI device");
+		goto fail_enable_device;
+	}
+
+	// Set DMA properties
+	ret = mqnic_common_setdma(mqnic);
+	if (ret)
+		goto fail_regions;
+
+	// Reserve regions
+	ret = pci_request_regions(pdev, DRIVER_NAME);
+	if (ret) {
+		dev_err(dev, "Failed to reserve regions");
+		goto fail_regions;
+	}
+
+	mqnic->hw_regs_size = pci_resource_len(pdev, 0);
+	mqnic->hw_regs_phys = pci_resource_start(pdev, 0);
+	mqnic->app_hw_regs_size = pci_resource_len(pdev, 2);
+	mqnic->app_hw_regs_phys = pci_resource_start(pdev, 2);
+	mqnic->ram_hw_regs_size = pci_resource_len(pdev, 4);
+	mqnic->ram_hw_regs_phys = pci_resource_start(pdev, 4);
+
+	// Map BARs
+	dev_info(dev, "Control BAR size: %llu", mqnic->hw_regs_size);
+	mqnic->hw_addr = pci_ioremap_bar(pdev, 0);
+	if (!mqnic->hw_addr) {
+		ret = -ENOMEM;
+		dev_err(dev, "Failed to map control BAR");
+		goto fail_map_bars;
+	}
+
+	if (mqnic->app_hw_regs_size) {
+		dev_info(dev, "Application BAR size: %llu", mqnic->app_hw_regs_size);
+		mqnic->app_hw_addr = pci_ioremap_bar(pdev, 2);
+		if (!mqnic->app_hw_addr) {
+			ret = -ENOMEM;
+			dev_err(dev, "Failed to map application BAR");
+			goto fail_map_bars;
+		}
+	}
+
+	if (mqnic->ram_hw_regs_size) {
+		dev_info(dev, "RAM BAR size: %llu", mqnic->ram_hw_regs_size);
+		mqnic->ram_hw_addr = pci_ioremap_bar(pdev, 4);
+		if (!mqnic->ram_hw_addr) {
+			ret = -ENOMEM;
+			dev_err(dev, "Failed to map RAM BAR");
+			goto fail_map_bars;
+		}
+	}
+
+	// Check if device needs to be reset
+	if (ioread32(mqnic->hw_addr+4) == 0xffffffff) {
+		ret = -EIO;
+		dev_err(dev, "Device needs to be reset");
+		goto fail_reset;
+	}
+
+	// Set up interrupts
+	ret = mqnic_irq_init_pcie(mqnic);
+	if (ret) {
+		dev_err(dev, "Failed to set up interrupts");
+		goto fail_init_irq;
+	}
+
+	// Enable bus mastering for DMA
+	pci_set_master(pdev);
+
+	// Common init
+	ret = mqnic_common_probe(mqnic);
+	if (ret)
+		goto fail_common;
+
+
+	// probe complete
+	return 0;
+
+	// error handling
+
+fail_common:
+	pci_clear_master(pdev);
+	mqnic_irq_deinit_pcie(mqnic);
+fail_reset:
+fail_init_irq:
+fail_map_bars:
+	if (mqnic->hw_addr)
+		pci_iounmap(pdev, mqnic->hw_addr);
+	if (mqnic->app_hw_addr)
+		pci_iounmap(pdev, mqnic->app_hw_addr);
+	if (mqnic->ram_hw_addr)
+		pci_iounmap(pdev, mqnic->ram_hw_addr);
+	pci_release_regions(pdev);
+fail_regions:
+	pci_disable_device(pdev);
+fail_enable_device:
+	mqnic_free_id(mqnic);
+	mqnic_devlink_free(devlink);
+	return ret;
+}
+
+
 static int mqnic_pci_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 {
 	int ret = 0;
@@ -516,6 +713,11 @@ static int mqnic_pci_probe(struct pci_dev *pdev, const struct pci_device_id *ent
 	struct devlink *devlink;
 	struct device *dev = &pdev->dev;
 	struct pci_dev *bridge = pci_upstream_bridge(pdev);
+
+    if(pdev->subsystem_vendor == 0x1234 && pdev->subsystem_device == 0x0000){
+        ret = mqnic_vf_probe(pdev, ent);
+        return ret; 
+    }
 
 	dev_info(dev, DRIVER_NAME " PCI probe");
 	dev_info(dev, " Vendor: 0x%04x", pdev->vendor);
