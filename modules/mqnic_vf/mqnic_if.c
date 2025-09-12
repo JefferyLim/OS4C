@@ -58,6 +58,8 @@ struct mqnic_if *mqnic_create_interface(struct mqnic_dev *mdev, int index, u8 __
 	interface->tx_fifo_depth = ioread32(interface->if_ctrl_rb->regs + MQNIC_RB_IF_CTRL_REG_TX_FIFO_DEPTH);
 	interface->rx_fifo_depth = ioread32(interface->if_ctrl_rb->regs + MQNIC_RB_IF_CTRL_REG_RX_FIFO_DEPTH);
 
+    interface->mac = ioread32(interface->if_ctrl_rb->regs + MQNIC_RB_IF_CTRL_REG_MAC);
+
 	dev_info(dev, "IF features: 0x%08x", interface->if_features);
 	dev_info(dev, "Port count: %d", interface->port_count);
 	dev_info(dev, "Scheduler block count: %d", interface->sched_block_count);

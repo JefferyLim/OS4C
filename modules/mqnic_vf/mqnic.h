@@ -396,6 +396,8 @@ struct mqnic_if {
 	u32 tx_fifo_depth;
 	u32 rx_fifo_depth;
 
+    u32 mac;
+
 	struct mqnic_res *eq_res;
 	struct mqnic_res *cq_res;
 	struct mqnic_res *txq_res;
