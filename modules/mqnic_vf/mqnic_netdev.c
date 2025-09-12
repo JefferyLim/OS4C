@@ -595,10 +595,15 @@ struct net_device *mqnic_create_netdev(struct mqnic_if *interface, int index,
 		dev_warn(dev, "Exhausted permanent MAC addresses; using random MAC");
 		eth_hw_addr_random(ndev);
 	} else {
+        u8 mac[ETH_ALEN];
+
+        memcpy(mac, mdev->mac_list[ndev->dev_port], ETH_ALEN);
+        mac[ETH_ALEN] += interface->mac;
+
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0)
-		eth_hw_addr_set(ndev, mdev->mac_list[ndev->dev_port]);
+		eth_hw_addr_set(ndev, mac);
 #else
-		memcpy(ndev->dev_addr, mdev->mac_list[ndev->dev_port], ETH_ALEN);
+		memcpy(ndev->dev_addr, mac, ETH_ALEN);
 #endif
 
 		if (!is_valid_ether_addr(ndev->dev_addr)) {
