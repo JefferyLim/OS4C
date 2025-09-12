@@ -598,7 +598,7 @@ struct net_device *mqnic_create_netdev(struct mqnic_if *interface, int index,
         u8 mac[ETH_ALEN];
 
         memcpy(mac, mdev->mac_list[ndev->dev_port], ETH_ALEN);
-        mac[ETH_ALEN] += interface->mac;
+        mac[ETH_ALEN-1] += interface->mac;
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0)
 		eth_hw_addr_set(ndev, mac);
