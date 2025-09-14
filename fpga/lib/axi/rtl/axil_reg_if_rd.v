@@ -50,6 +50,7 @@ module axil_reg_if_rd #
      * AXI-Lite slave interface
      */
     input  wire [ADDR_WIDTH-1:0]  s_axil_araddr,
+    input  wire [8-1:0]           s_axil_aruser, 
     input  wire [2:0]             s_axil_arprot,
     input  wire                   s_axil_arvalid,
     output wire                   s_axil_arready,
@@ -63,6 +64,7 @@ module axil_reg_if_rd #
      */
     output wire [ADDR_WIDTH-1:0]  reg_rd_addr,
     output wire                   reg_rd_en,
+    output wire [8-1:0]           reg_rd_user,
     input  wire [DATA_WIDTH-1:0]  reg_rd_data,
     input  wire                   reg_rd_wait,
     input  wire                   reg_rd_ack
@@ -77,6 +79,8 @@ reg s_axil_arvalid_reg = 1'b0, s_axil_arvalid_next;
 reg [DATA_WIDTH-1:0] s_axil_rdata_reg = {DATA_WIDTH{1'b0}}, s_axil_rdata_next;
 reg s_axil_rvalid_reg = 1'b0, s_axil_rvalid_next;
 
+reg [8-1:0] s_axil_aruser_reg = {8{1'b0}}, s_axil_aruser_next;
+
 reg reg_rd_en_reg = 1'b0, reg_rd_en_next;
 
 assign s_axil_arready = !s_axil_arvalid_reg;
@@ -87,6 +91,8 @@ assign s_axil_rvalid = s_axil_rvalid_reg;
 assign reg_rd_addr = s_axil_araddr_reg;
 assign reg_rd_en = reg_rd_en_reg;
 
+assign reg_rd_user = s_axil_aruser_reg;
+
 always @* begin
     timeout_count_next = timeout_count_reg;
 
@@ -94,6 +100,8 @@ always @* begin
     s_axil_arvalid_next = s_axil_arvalid_reg;
     s_axil_rdata_next = s_axil_rdata_reg;
     s_axil_rvalid_next = s_axil_rvalid_reg && !s_axil_rready;
+
+    s_axil_aruser_next = s_axil_aruser_reg;
 
     if (reg_rd_en_reg && (reg_rd_ack || timeout_count_reg == 0)) begin
         s_axil_arvalid_next = 1'b0;
@@ -104,6 +112,7 @@ always @* begin
     if (!s_axil_arvalid_reg) begin
         s_axil_araddr_next = s_axil_araddr;
         s_axil_arvalid_next = s_axil_arvalid;
+        s_axil_aruser_next = s_axil_aruser;
         timeout_count_next = TIMEOUT-1;
     end
 
@@ -121,6 +130,8 @@ always @(posedge clk) begin
     s_axil_arvalid_reg <= s_axil_arvalid_next;
     s_axil_rdata_reg <= s_axil_rdata_next;
     s_axil_rvalid_reg <= s_axil_rvalid_next;
+
+    s_axil_aruser_reg <= s_axil_aruser_next;
 
     reg_rd_en_reg <= reg_rd_en_next;
 

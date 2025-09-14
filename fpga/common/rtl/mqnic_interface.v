@@ -1031,6 +1031,10 @@ wire [REG_DATA_WIDTH-1:0]  ctrl_reg_rd_data;
 wire                       ctrl_reg_rd_wait;
 wire                       ctrl_reg_rd_ack;
 
+wire [8-1:0] ctrl_reg_wr_user;
+wire [8-1:0] ctrl_reg_rd_user;
+
+
 axil_reg_if #(
     .DATA_WIDTH(REG_DATA_WIDTH),
     .ADDR_WIDTH(REG_ADDR_WIDTH),
@@ -1045,7 +1049,7 @@ axil_reg_if_inst (
      * AXI-Lite slave interface
      */
     .s_axil_awaddr(axil_ctrl_awaddr),
-    // .s_axil_awuser(axil_ctrl_awuser), // Scott
+    .s_axil_awuser(axil_ctrl_awuser), // Scott
     .s_axil_awprot(axil_ctrl_awprot),
     .s_axil_awvalid(axil_ctrl_awvalid),
     .s_axil_awready(axil_ctrl_awready),
@@ -1057,7 +1061,7 @@ axil_reg_if_inst (
     .s_axil_bvalid(axil_ctrl_bvalid),
     .s_axil_bready(axil_ctrl_bready),
     .s_axil_araddr(axil_ctrl_araddr),
-    // .s_axil_aruser(axil_ctrl_aruser), // Scott
+    .s_axil_aruser(axil_ctrl_aruser), // Scott
     .s_axil_arprot(axil_ctrl_arprot),
     .s_axil_arvalid(axil_ctrl_arvalid),
     .s_axil_arready(axil_ctrl_arready),
@@ -1072,10 +1076,12 @@ axil_reg_if_inst (
     .reg_wr_addr(ctrl_reg_wr_addr),
     .reg_wr_data(ctrl_reg_wr_data),
     .reg_wr_strb(ctrl_reg_wr_strb),
+    .reg_wr_user(ctrl_reg_wr_user),
     .reg_wr_en(ctrl_reg_wr_en),
     .reg_wr_wait(ctrl_reg_wr_wait),
     .reg_wr_ack(ctrl_reg_wr_ack),
     .reg_rd_addr(ctrl_reg_rd_addr),
+    .reg_rd_user(ctrl_reg_rd_user),
     .reg_rd_en(ctrl_reg_rd_en),
     .reg_rd_data(ctrl_reg_rd_data),
     .reg_rd_wait(ctrl_reg_rd_wait),
@@ -1181,6 +1187,7 @@ always @(posedge clk) begin
             end
             RBB+8'h10: ctrl_reg_rd_data_reg <= PORTS;                       // IF ctrl: Port count
             RBB+8'h14: ctrl_reg_rd_data_reg <= SCHEDULERS;                  // IF ctrl: Scheduler count
+            RBB+8'h18: ctrl_reg_rd_data_reg <= ctrl_reg_rd_user;            // IF ctrl: MAC
             RBB+8'h20: ctrl_reg_rd_data_reg <= MAX_TX_SIZE;                 // IF ctrl: Max TX MTU
             RBB+8'h24: ctrl_reg_rd_data_reg <= MAX_RX_SIZE;                 // IF ctrl: Max RX MTU
             RBB+8'h28: ctrl_reg_rd_data_reg <= tx_mtu_reg;                  // IF ctrl: TX MTU
@@ -2071,8 +2078,8 @@ tx_qm_inst (
     /*
      * AXI-Lite slave interface
      */
-    .s_axil_awaddr(axil_tx_qm_awaddr),
-    .s_axil_awuser(axil_tx_qm_awuser), // Scott
+    .s_axil_awaddr(axil_tx_qm_awaddr_translated),
+    .s_axil_awuser(axil_tx_qm_write_function_id), // Scott
     .s_axil_awprot(axil_tx_qm_awprot),
     .s_axil_awvalid(axil_tx_qm_awvalid),
     .s_axil_awready(axil_tx_qm_awready),
@@ -2083,8 +2090,8 @@ tx_qm_inst (
     .s_axil_bresp(axil_tx_qm_bresp),
     .s_axil_bvalid(axil_tx_qm_bvalid),
     .s_axil_bready(axil_tx_qm_bready),
-    .s_axil_araddr(axil_tx_qm_araddr),
-    .s_axil_aruser(axil_tx_qm_aruser), // Scott
+    .s_axil_araddr(axil_tx_qm_araddr_translated),
+    .s_axil_aruser(axil_tx_qm_read_function_id), // Scott
     .s_axil_arprot(axil_tx_qm_arprot),
     .s_axil_arvalid(axil_tx_qm_arvalid),
     .s_axil_arready(axil_tx_qm_arready),

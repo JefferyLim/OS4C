@@ -52,6 +52,7 @@ module axil_reg_if #
     input  wire [ADDR_WIDTH-1:0]  s_axil_awaddr,
     input  wire [2:0]             s_axil_awprot,
     input  wire                   s_axil_awvalid,
+    input wire  [8-1:0]           s_axil_awuser,
     output wire                   s_axil_awready,
     input  wire [DATA_WIDTH-1:0]  s_axil_wdata,
     input  wire [STRB_WIDTH-1:0]  s_axil_wstrb,
@@ -62,6 +63,7 @@ module axil_reg_if #
     input  wire                   s_axil_bready,
     input  wire [ADDR_WIDTH-1:0]  s_axil_araddr,
     input  wire [2:0]             s_axil_arprot,
+    input wire  [8-1:0]           s_axil_aruser,
     input  wire                   s_axil_arvalid,
     output wire                   s_axil_arready,
     output wire [DATA_WIDTH-1:0]  s_axil_rdata,
@@ -74,11 +76,13 @@ module axil_reg_if #
      */
     output wire [ADDR_WIDTH-1:0]  reg_wr_addr,
     output wire [DATA_WIDTH-1:0]  reg_wr_data,
+    output wire [8-1:0]           reg_wr_user,
     output wire [STRB_WIDTH-1:0]  reg_wr_strb,
     output wire                   reg_wr_en,
     input  wire                   reg_wr_wait,
     input  wire                   reg_wr_ack,
     output wire [ADDR_WIDTH-1:0]  reg_rd_addr,
+    output wire [8-1:0]           reg_rd_user,
     output wire                   reg_rd_en,
     input  wire [DATA_WIDTH-1:0]  reg_rd_data,
     input  wire                   reg_rd_wait,
@@ -100,6 +104,7 @@ axil_reg_if_wr_inst (
      */
     .s_axil_awaddr(s_axil_awaddr),
     .s_axil_awprot(s_axil_awprot),
+    .s_axil_awuser(s_axil_awuser),
     .s_axil_awvalid(s_axil_awvalid),
     .s_axil_awready(s_axil_awready),
     .s_axil_wdata(s_axil_wdata),
@@ -115,6 +120,7 @@ axil_reg_if_wr_inst (
      */
     .reg_wr_addr(reg_wr_addr),
     .reg_wr_data(reg_wr_data),
+    .reg_wr_user(reg_wr_user),
     .reg_wr_strb(reg_wr_strb),
     .reg_wr_en(reg_wr_en),
     .reg_wr_wait(reg_wr_wait),
@@ -136,6 +142,7 @@ axil_reg_if_rd_inst (
      */
     .s_axil_araddr(s_axil_araddr),
     .s_axil_arprot(s_axil_arprot),
+    .s_axil_aruser(s_axil_aruser),
     .s_axil_arvalid(s_axil_arvalid),
     .s_axil_arready(s_axil_arready),
     .s_axil_rdata(s_axil_rdata),
@@ -148,6 +155,7 @@ axil_reg_if_rd_inst (
      */
     .reg_rd_addr(reg_rd_addr),
     .reg_rd_en(reg_rd_en),
+    .reg_rd_user(reg_rd_user),
     .reg_rd_data(reg_rd_data),
     .reg_rd_wait(reg_rd_wait),
     .reg_rd_ack(reg_rd_ack)
