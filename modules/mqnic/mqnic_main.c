@@ -686,7 +686,7 @@ static int mqnic_pci_probe(struct pci_dev *pdev, const struct pci_device_id *ent
 
 	// error handling
 fail_sriov:
-	//pci_disable_sriov(pdev);
+	pci_disable_sriov(pdev);
 fail_common:
 	pci_clear_master(pdev);
 	mqnic_irq_deinit_pcie(mqnic);
@@ -726,7 +726,7 @@ static void mqnic_pci_remove(struct pci_dev *pdev)
 	if (mqnic->ram_hw_addr)
 		pci_iounmap(pdev, mqnic->ram_hw_addr);
 	pci_release_regions(pdev);
-	//pci_disable_sriov(pdev);
+	pci_disable_sriov(pdev);
 	pci_disable_device(pdev);
 	mqnic_free_id(mqnic);
 	mqnic_devlink_free(devlink);
