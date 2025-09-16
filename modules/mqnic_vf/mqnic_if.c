@@ -75,7 +75,7 @@ struct mqnic_if *mqnic_create_interface(struct mqnic_dev *mdev, int index, u8 __
 	}
 
 	offset = ioread32(interface->eq_rb->regs + MQNIC_RB_EQM_REG_OFFSET);
-	count = ioread32(interface->eq_rb->regs + MQNIC_RB_EQM_REG_COUNT);
+	count = ioread32(interface->eq_rb->regs + MQNIC_RB_EQM_REG_COUNT)/256;
 	stride = ioread32(interface->eq_rb->regs + MQNIC_RB_EQM_REG_STRIDE);
 
 	dev_info(dev, "EQ offset: 0x%08x", offset);
@@ -100,7 +100,7 @@ struct mqnic_if *mqnic_create_interface(struct mqnic_dev *mdev, int index, u8 __
 	}
 
 	offset = ioread32(interface->cq_rb->regs + MQNIC_RB_CQM_REG_OFFSET);
-	count = ioread32(interface->cq_rb->regs + MQNIC_RB_CQM_REG_COUNT);
+	count = ioread32(interface->cq_rb->regs + MQNIC_RB_CQM_REG_COUNT)/256;
 	stride = ioread32(interface->cq_rb->regs + MQNIC_RB_CQM_REG_STRIDE);
 	count = min_t(u32, count, MQNIC_MAX_CQ);
 
@@ -125,7 +125,7 @@ struct mqnic_if *mqnic_create_interface(struct mqnic_dev *mdev, int index, u8 __
 	}
 
 	offset = ioread32(interface->txq_rb->regs + MQNIC_RB_TX_QM_REG_OFFSET);
-	count = ioread32(interface->txq_rb->regs + MQNIC_RB_TX_QM_REG_COUNT);
+	count = ioread32(interface->txq_rb->regs + MQNIC_RB_TX_QM_REG_COUNT)/256;
 	stride = ioread32(interface->txq_rb->regs + MQNIC_RB_TX_QM_REG_STRIDE);
 
 	count = min_t(u32, count, MQNIC_MAX_TXQ);
@@ -151,7 +151,7 @@ struct mqnic_if *mqnic_create_interface(struct mqnic_dev *mdev, int index, u8 __
 	}
 
 	offset = ioread32(interface->rxq_rb->regs + MQNIC_RB_RX_QM_REG_OFFSET);
-	count = ioread32(interface->rxq_rb->regs + MQNIC_RB_RX_QM_REG_COUNT);
+	count = ioread32(interface->rxq_rb->regs + MQNIC_RB_RX_QM_REG_COUNT)/256;
 	stride = ioread32(interface->rxq_rb->regs + MQNIC_RB_RX_QM_REG_STRIDE);
 
 	count = min_t(u32, count, MQNIC_MAX_RXQ);
