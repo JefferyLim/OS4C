@@ -363,9 +363,12 @@ int main(int argc, char *argv[])
     }
 
     printf("EQ info\n");
+    printf("%d\n", dev_interface->eq_res->count);
     printf(" Queue      Base Address     VFID En A  LS  A   IRQ    Prod    Cons     Len\n");
     for (int k = 0; k < mqnic_res_get_count(dev_interface->eq_res); k++)
     {
+
+
         uint32_t val;
         volatile uint8_t *base = mqnic_res_get_addr(dev_interface->eq_res, k);
 
