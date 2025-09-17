@@ -385,7 +385,7 @@ int main(int argc, char *argv[])
         uint64_t base_addr = (uint64_t)mqnic_reg_read32(base, MQNIC_EQ_BASE_ADDR_VF_REG) + ((uint64_t)mqnic_reg_read32(base, MQNIC_EQ_BASE_ADDR_VF_REG+4) << 32);
         base_addr &= 0xfffffffffffff000;
         
-        uint8_t vfid = base_addr & 0xFF;
+        uint8_t vfid = (uint64_t)(mqnic_reg_read32(base, MQNIC_EQ_BASE_ADDR_VF_REG)) & 0xFF;
         val = mqnic_reg_read32(base, MQNIC_EQ_PTR_REG);
         uint32_t prod_ptr = val & MQNIC_EQ_PTR_MASK;
         uint32_t cons_ptr = (val >> 16) & MQNIC_EQ_PTR_MASK;
@@ -413,7 +413,8 @@ int main(int argc, char *argv[])
 
         uint64_t base_addr = (uint64_t)mqnic_reg_read32(base, MQNIC_CQ_BASE_ADDR_VF_REG) + ((uint64_t)mqnic_reg_read32(base, MQNIC_CQ_BASE_ADDR_VF_REG+4) << 32);
         base_addr &= 0xfffffffffffff000;
-        uint8_t vfid = base_addr & 0xFF;
+
+        uint8_t vfid = (uint64_t)(mqnic_reg_read32(base, MQNIC_CQ_BASE_ADDR_VF_REG)) & 0xFF;
         val = mqnic_reg_read32(base, MQNIC_CQ_PTR_REG);
         uint32_t prod_ptr = val & MQNIC_CQ_PTR_MASK;
         uint32_t cons_ptr = (val >> 16) & MQNIC_CQ_PTR_MASK;
@@ -438,7 +439,7 @@ int main(int argc, char *argv[])
 
         uint64_t base_addr = (uint64_t)mqnic_reg_read32(base, MQNIC_QUEUE_BASE_ADDR_VF_REG) + ((uint64_t)mqnic_reg_read32(base, MQNIC_QUEUE_BASE_ADDR_VF_REG+4) << 32);
         base_addr &= 0xfffffffffffff000;
-        uint8_t vfid = base_addr & 0xFF;
+        uint8_t vfid = (uint64_t)(mqnic_reg_read32(base, MQNIC_QUEUE_BASE_ADDR_VF_REG)) & 0xFF;
         val = mqnic_reg_read32(base, MQNIC_QUEUE_SIZE_CQN_REG);
         uint32_t cqn = val & 0xffffff;
         uint8_t log_queue_size = (val >> 24) & 0xf;
@@ -467,7 +468,8 @@ int main(int argc, char *argv[])
 
         uint64_t base_addr = (uint64_t)mqnic_reg_read32(base, MQNIC_QUEUE_BASE_ADDR_VF_REG) + ((uint64_t)mqnic_reg_read32(base, MQNIC_QUEUE_BASE_ADDR_VF_REG+4) << 32);
         base_addr &= 0xfffffffffffff000;
-        uint8_t vfid = base_addr & 0xFF;
+
+        uint8_t vfid = (uint64_t)(mqnic_reg_read32(base, MQNIC_QUEUE_BASE_ADDR_VF_REG)) & 0xFF;
         val = mqnic_reg_read32(base, MQNIC_QUEUE_SIZE_CQN_REG);
         uint32_t cqn = val & 0xffffff;
         uint8_t log_queue_size = (val >> 24) & 0xf;
