@@ -67,7 +67,7 @@ struct mqnic_if *mqnic_if_open(struct mqnic *dev, int index, volatile uint8_t *r
     }
 
     offset = mqnic_reg_read32(interface->eq_rb->regs, MQNIC_RB_EQM_REG_OFFSET);
-    count = mqnic_reg_read32(interface->eq_rb->regs, MQNIC_RB_EQM_REG_COUNT);
+    count = mqnic_reg_read32(interface->eq_rb->regs, MQNIC_RB_EQM_REG_COUNT)/256;
     stride = mqnic_reg_read32(interface->eq_rb->regs, MQNIC_RB_EQM_REG_STRIDE);
 
     if (count > MQNIC_MAX_EQ)
@@ -87,7 +87,7 @@ struct mqnic_if *mqnic_if_open(struct mqnic *dev, int index, volatile uint8_t *r
     }
 
     offset = mqnic_reg_read32(interface->cq_rb->regs, MQNIC_RB_CQM_REG_OFFSET);
-    count = mqnic_reg_read32(interface->cq_rb->regs, MQNIC_RB_CQM_REG_COUNT);
+    count = mqnic_reg_read32(interface->cq_rb->regs, MQNIC_RB_CQM_REG_COUNT)/256;
     stride = mqnic_reg_read32(interface->cq_rb->regs, MQNIC_RB_CQM_REG_STRIDE);
 
     if (count > MQNIC_MAX_CQ)
@@ -107,7 +107,7 @@ struct mqnic_if *mqnic_if_open(struct mqnic *dev, int index, volatile uint8_t *r
     }
 
     offset = mqnic_reg_read32(interface->txq_rb->regs, MQNIC_RB_TX_QM_REG_OFFSET);
-    count = mqnic_reg_read32(interface->txq_rb->regs, MQNIC_RB_TX_QM_REG_COUNT);
+    count = mqnic_reg_read32(interface->txq_rb->regs, MQNIC_RB_TX_QM_REG_COUNT)/256;
     stride = mqnic_reg_read32(interface->txq_rb->regs, MQNIC_RB_TX_QM_REG_STRIDE);
 
     if (count > MQNIC_MAX_TXQ)
@@ -127,7 +127,7 @@ struct mqnic_if *mqnic_if_open(struct mqnic *dev, int index, volatile uint8_t *r
     }
 
     offset = mqnic_reg_read32(interface->rxq_rb->regs, MQNIC_RB_RX_QM_REG_OFFSET);
-    count = mqnic_reg_read32(interface->rxq_rb->regs, MQNIC_RB_RX_QM_REG_COUNT);
+    count = mqnic_reg_read32(interface->rxq_rb->regs, MQNIC_RB_RX_QM_REG_COUNT)/256;
     stride = mqnic_reg_read32(interface->rxq_rb->regs, MQNIC_RB_RX_QM_REG_STRIDE);
 
     if (count > MQNIC_MAX_RXQ)
