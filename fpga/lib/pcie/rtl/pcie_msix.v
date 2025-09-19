@@ -104,7 +104,7 @@ module pcie_msix #
 
 parameter TBL_ADDR_WIDTH = IRQ_INDEX_WIDTH+1;
 parameter NUM_TABLE_ENTRIES = 2**TBL_ADDR_WIDTH; // Scott
-parameter NUM_ENTRIES_PER_FUNC = NUM_TABLE_ENTRIES / FUNCTION_ID_WIDTH;
+parameter NUM_ENTRIES_PER_FUNC = NUM_TABLE_ENTRIES / 2**FUNCTION_ID_WIDTH;
 parameter CLOG_NUM_ENTRIES_PER_FUNC = $clog2(NUM_ENTRIES_PER_FUNC);
 
 parameter PBA_ADDR_WIDTH = IRQ_INDEX_WIDTH > 6 ? IRQ_INDEX_WIDTH-6 : 0;
@@ -212,19 +212,51 @@ reg [63:0] pba_mem_rd_data_reg = 0;
 reg [63:0] tbl_axil_mem_rd_data_reg = 0;
 reg [63:0] pba_axil_mem_rd_data_reg = 0;
 
+
+wire [AXIL_ADDR_WIDTH-1:0] axil_msix_awaddr_translated;
+wire [AXIL_ADDR_WIDTH-1:0] axil_msix_araddr_translated;
+wire [FUNCTION_ID_WIDTH-1:0] axil_msix_read_function_id; 
+wire [FUNCTION_ID_WIDTH-1:0] axil_msix_write_function_id;
+
+//// Scott
+//resource_translator #(
+//    .TOTAL_RESOURCES(2**(IRQ_INDEX_WIDTH+1)),
+//    .FUNCTION_ID_WIDTH(FUNCTION_ID_WIDTH),
+//    .RESOURCE_BIT_WIDTH(32'd3), // 4-bits per cpl queue
+//    .AXIL_ADDR_WIDTH(AXIL_ADDR_WIDTH)
+//)
+//pcie_msix_resource_translator (
+
+//    .input_write_address(s_axil_awaddr),
+//    .input_write_function_id(s_axil_awuser),
+
+//    .input_read_address(s_axil_araddr),
+//    .input_read_function_id(s_axil_aruser),
+
+//    .output_read_address(axil_msix_araddr_translated),
+//    .output_write_address(axil_msix_awaddr_translated),
+//    .output_read_function_id(axil_msix_read_function_id),
+//    .output_write_function_id(axil_msix_write_function_id)
+
+//);
 // wire [TBL_ADDR_WIDTH-1:0] s_axil_awaddr_index_temp = s_axil_awaddr >> INDEX_SHIFT; // Scott
 // wire [TBL_ADDR_WIDTH-1:0] s_axil_awaddr_index; // Scott
 // assign s_axil_awaddr_index[CLOG_NUM_ENTRIES_PER_FUNC-1:0] = s_axil_awaddr_index_temp; // Scott
 // assign s_axil_awaddr_index[TBL_ADDR_WIDTH-1:CLOG_NUM_ENTRIES_PER_FUNC] = s_axil_awuser; // Scott
 
+//wire [TBL_ADDR_WIDTH-1:0] s_axil_awaddr_index = axil_msix_awaddr_translated >> INDEX_SHIFT; // Scott
+//wire [WORD_SELECT_WIDTH-1:0] s_axil_awaddr_word = AXIL_DATA_WIDTH < 64 ? axil_msix_awaddr_translated >> WORD_SELECT_SHIFT : 0; // Scott
+
+
 wire [TBL_ADDR_WIDTH-1:0] s_axil_awaddr_index = s_axil_awaddr >> INDEX_SHIFT; // Scott
 wire [WORD_SELECT_WIDTH-1:0] s_axil_awaddr_word = AXIL_DATA_WIDTH < 64 ? s_axil_awaddr >> WORD_SELECT_SHIFT : 0; // Scott
-
-
 // wire [TBL_ADDR_WIDTH-1:0] s_axil_araddr_index_temp = s_axil_araddr >> INDEX_SHIFT; // Scott
 // wire [TBL_ADDR_WIDTH-1:0] s_axil_araddr_index;  // Scott
 // assign s_axil_araddr_index[CLOG_NUM_ENTRIES_PER_FUNC-1:0] = s_axil_araddr_index_temp; // Scott
 // assign s_axil_araddr_index[TBL_ADDR_WIDTH-1:CLOG_NUM_ENTRIES_PER_FUNC] = s_axil_aruser; // Scott
+
+//wire [TBL_ADDR_WIDTH-1:0] s_axil_araddr_index = axil_msix_araddr_translated >> INDEX_SHIFT;  // Scott
+//wire [WORD_SELECT_WIDTH-1:0] s_axil_araddr_word = AXIL_DATA_WIDTH < 64 ? axil_msix_araddr_translated >> WORD_SELECT_SHIFT : 0; // Scott
 
 wire [TBL_ADDR_WIDTH-1:0] s_axil_araddr_index = s_axil_araddr >> INDEX_SHIFT;  // Scott
 wire [WORD_SELECT_WIDTH-1:0] s_axil_araddr_word = AXIL_DATA_WIDTH < 64 ? s_axil_araddr >> WORD_SELECT_SHIFT : 0; // Scott
@@ -248,6 +280,22 @@ assign tx_wr_req_tlp_sop = 1'b1;
 assign tx_wr_req_tlp_eop = 1'b1;
 
 integer i;
+     
+/*ila_pcie_msix ila_pcie_msix_inst(
+    .clk (clk),
+
+    .probe0(irq_index),
+    .probe1(func_id),
+    .probe2(irq_valid),
+    .probe3(irq_ready),
+    .probe4(s_axil_awaddr),
+    .probe5(s_axil_awuser),
+    .probe6(s_axil_awvalid),
+    .probe7(s_axil_araddr),
+    .probe8(s_axil_aruser),
+    .probe9(s_axil_arvalid)
+);*/
+
 
 initial begin
     for (i = 0; i < 2**TBL_ADDR_WIDTH; i = i + 1) begin
@@ -304,9 +352,9 @@ always @* begin
     tlp_hdr[107:106] = 3'b000; // AT
     tlp_hdr[105:96] = 10'd1; // length
     // DW 1
-	//$display("Scott irq_index_reg = %b", irq_index_reg);
-	func_id[7:0] = irq_index_reg >> CLOG_NUM_ENTRIES_PER_FUNC;
-    tlp_hdr[95:80] = {8'b0, func_id}; // requester ID
+	func_id[7:0] = irq_index_reg >> (CLOG_NUM_ENTRIES_PER_FUNC-1);
+    tlp_hdr[87:80] = func_id; // requester ID
+    tlp_hdr[95:88] = requester_id >> 8;
 	//$display("Scott tlp_hdr = %b ", tlp_hdr[95:80]);
     tlp_hdr[79:72] = 8'd0; // tag
     tlp_hdr[71:68] = 4'b0000; // last BE
@@ -314,10 +362,12 @@ always @* begin
     if (((vec_addr_reg[63:2] >> 30) != 0) || TLP_FORCE_64_BIT_ADDR) begin
         // DW 2+3
         tlp_hdr[63:2] = vec_addr_reg[63:2]; // address
+	   $display("Scott vec_addr_reg a= %h ", vec_addr_reg[63:2]);
         tlp_hdr[1:0] = 2'b00; // PH
     end else begin
         // DW 2
         tlp_hdr[63:34] = vec_addr_reg[63:2]; // address
+	    $display("Scott vec_addr_regb = %h ", vec_addr_reg[63:34]);
         tlp_hdr[33:32] = 2'b00; // PH
         // DW 3
         tlp_hdr[31:0] = 32'd0;
@@ -331,6 +381,9 @@ always @* begin
                 // new request
                 irq_ready_next = 1'b0;
                 irq_index_next = {irq_function_id, irq_index};
+                
+	            $display("Scott irq_function_id = %h", irq_function_id);
+	            $display("Scott irq_index = %b", irq_index);
                 irq_function_id_next = irq_function_id;
 
                 tbl_mem_rd_en = 1'b1;
@@ -376,8 +429,10 @@ always @* begin
         STATE_READ_TBL_1: begin
             // handle first table read
             tbl_mem_rd_en = 1'b1;
+            $display("Scott tbl_mem_addr = %h", tbl_mem_addr);
             tbl_mem_addr = {irq_index_reg, 1'b1};
 
+            $display("Scott vec_addr_next = %h", {tbl_mem_rd_data_reg[63:2], 2'b00});
             vec_addr_next = {tbl_mem_rd_data_reg[63:2], 2'b00};
 
             state_next = STATE_READ_TBL_2;
@@ -405,9 +460,10 @@ always @* begin
                 tx_wr_req_tlp_data_next = vec_data_reg;
                 tx_wr_req_tlp_hdr_next = tlp_hdr;
 
+				$display("Scott data = %h ", vec_data_reg);
                 tx_wr_req_tlp_valid_next = 1'b1;
 				// $display("Scott tlp_valid_next = %b ",  tx_wr_req_tlp_valid_next);
-				// $display("Scott func_id = %b ", func_id[7:0]);
+				$display("Scott func_id = %h ", func_id[7:0]);
 
                 // clear PBA bit
                 pba_mem_wr_en = 1'b1;
@@ -551,6 +607,8 @@ always @(posedge clk) begin
     s_axil_rdata_reg <= s_axil_rdata_next;
     s_axil_rvalid_reg <= s_axil_rvalid_next;
 
+    
+    
     if (tbl_axil_mem_rd_en) begin
         tbl_axil_mem_rd_data_reg <= tbl_mem[s_axil_araddr_index];
     end else begin

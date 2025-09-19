@@ -785,6 +785,7 @@ if (APP_ENABLE) begin : pcie_tlp_mux
         .fifo_half_full(),
         .fifo_watermark()
     );
+     
 
     pcie_tlp_mux #(
         .PORTS(2),
@@ -1291,9 +1292,9 @@ wire [FUNCTION_ID_WIDTH-1:0] axil_msix_write_function_id;
 
 // Scott
 resource_translator #(
-    .TOTAL_RESOURCES(2**(FUNCTION_ID_WIDTH + IRQ_INDEX_WIDTH)),
+    .TOTAL_RESOURCES(2**(FUNCTION_ID_WIDTH + IRQ_INDEX_WIDTH + 1)),
     .FUNCTION_ID_WIDTH(FUNCTION_ID_WIDTH),
-    .RESOURCE_BIT_WIDTH(32'd2), // 4-bits per cpl queue
+    .RESOURCE_BIT_WIDTH(32'd3), // 4-bits per cpl queue
     .AXIL_ADDR_WIDTH(AXIL_MSIX_ADDR_WIDTH)
 )
 pcie_msix_resource_translator (
@@ -1311,6 +1312,22 @@ pcie_msix_resource_translator (
 
 );
 
+/*  
+ila_pcie_msix ila_pcie_msix_inst(
+    .clk (clk),
+
+    .probe0(axil_msix_rvalid),
+    .probe1(axil_msix_awuser),
+    .probe2(axil_msix_rvalid),
+    .probe3(axil_msix_rvalid),
+    .probe4(axil_msix_araddr_translated),
+    .probe5(axil_msix_read_function_id),
+    .probe6(axil_msix_rvalid),
+    .probe7(axil_msix_araddr),
+    .probe8(axil_msix_aruser),
+    .probe9(axil_msix_rvalid)
+);
+*/
 pcie_msix #(
     .IRQ_INDEX_WIDTH(FUNCTION_ID_WIDTH + IRQ_INDEX_WIDTH), // Scott
     .AXIL_DATA_WIDTH(AXIL_CTRL_DATA_WIDTH),
