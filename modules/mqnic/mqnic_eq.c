@@ -219,12 +219,13 @@ void mqnic_process_eq(struct mqnic_eq *eq)
 
 		dma_rmb();
 
-        u32 cpl_count = mqnic_res_get_count(interface->cq_res);
+        //u32 cpl_count = mqnic_res_get_count(interface->cq_res);
 
 		if (event->type == MQNIC_EVENT_TYPE_CPL) {
 			// completion event
 			rcu_read_lock();
-			cq = radix_tree_lookup(&eq->cq_table, (le16_to_cpu(event->source) % cpl_count) );
+		//	cq = radix_tree_lookup(&eq->cq_table, (le16_to_cpu(event->source) % cpl_count) );
+			cq = radix_tree_lookup(&eq->cq_table, (le16_to_cpu(event->source)));
 			rcu_read_unlock();
 
 			if (likely(cq)) {
