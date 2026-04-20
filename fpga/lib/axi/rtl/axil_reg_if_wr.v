@@ -39,6 +39,8 @@ module axil_reg_if_wr #
     parameter ADDR_WIDTH = 32,
     // Width of wstrb (width of data bus in words)
     parameter STRB_WIDTH = (DATA_WIDTH/8),
+    // Width of user bus in bits
+    parameter USER_WIDTH = 8,
     // Timeout delay (cycles)
     parameter TIMEOUT = 4
 )
@@ -52,7 +54,7 @@ module axil_reg_if_wr #
     input  wire [ADDR_WIDTH-1:0]  s_axil_awaddr,
     input  wire [2:0]             s_axil_awprot,
     input  wire                   s_axil_awvalid,
-    input wire  [8-1:0]           s_axil_awuser,
+    input wire  [USER_WIDTH-1:0]  s_axil_awuser,
     output wire                   s_axil_awready,
     input  wire [DATA_WIDTH-1:0]  s_axil_wdata,
     input  wire [STRB_WIDTH-1:0]  s_axil_wstrb,
@@ -69,7 +71,7 @@ module axil_reg_if_wr #
     output wire [DATA_WIDTH-1:0]  reg_wr_data,
     output wire [STRB_WIDTH-1:0]  reg_wr_strb,
     output wire                   reg_wr_en,
-    output wire [8-1:0]           reg_wr_user,
+    output wire [USER_WIDTH-1:0]  reg_wr_user,
     input  wire                   reg_wr_wait,
     input  wire                   reg_wr_ack
 );
@@ -86,7 +88,7 @@ reg s_axil_wvalid_reg = 1'b0, s_axil_wvalid_next;
 reg s_axil_bvalid_reg = 1'b0, s_axil_bvalid_next;
 
 
-reg [8-1:0] s_axil_awuser_reg = {8{1'b0}}, s_axil_awuser_next;
+reg [USER_WIDTH-1:0] s_axil_awuser_reg = {USER_WIDTH{1'b0}}, s_axil_awuser_next;
 
 reg reg_wr_en_reg = 1'b0, reg_wr_en_next;
 

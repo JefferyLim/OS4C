@@ -39,6 +39,8 @@ module axil_reg_if_rd #
     parameter ADDR_WIDTH = 32,
     // Width of wstrb (width of data bus in words)
     parameter STRB_WIDTH = (DATA_WIDTH/8),
+    // Width of user bus in bits
+    parameter USER_WIDTH = 8,
     // Timeout delay (cycles)
     parameter TIMEOUT = 4
 )
@@ -50,7 +52,7 @@ module axil_reg_if_rd #
      * AXI-Lite slave interface
      */
     input  wire [ADDR_WIDTH-1:0]  s_axil_araddr,
-    input  wire [8-1:0]           s_axil_aruser, 
+    input  wire [USER_WIDTH-1:0]  s_axil_aruser, 
     input  wire [2:0]             s_axil_arprot,
     input  wire                   s_axil_arvalid,
     output wire                   s_axil_arready,
@@ -64,7 +66,7 @@ module axil_reg_if_rd #
      */
     output wire [ADDR_WIDTH-1:0]  reg_rd_addr,
     output wire                   reg_rd_en,
-    output wire [8-1:0]           reg_rd_user,
+    output wire [USER_WIDTH-1:0]  reg_rd_user,
     input  wire [DATA_WIDTH-1:0]  reg_rd_data,
     input  wire                   reg_rd_wait,
     input  wire                   reg_rd_ack
@@ -79,7 +81,7 @@ reg s_axil_arvalid_reg = 1'b0, s_axil_arvalid_next;
 reg [DATA_WIDTH-1:0] s_axil_rdata_reg = {DATA_WIDTH{1'b0}}, s_axil_rdata_next;
 reg s_axil_rvalid_reg = 1'b0, s_axil_rvalid_next;
 
-reg [8-1:0] s_axil_aruser_reg = {8{1'b0}}, s_axil_aruser_next;
+reg [USER_WIDTH-1:0] s_axil_aruser_reg = {USER_WIDTH{1'b0}}, s_axil_aruser_next;
 
 reg reg_rd_en_reg = 1'b0, reg_rd_en_next;
 

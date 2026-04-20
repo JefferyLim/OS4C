@@ -39,8 +39,12 @@ module axil_reg_if #
     parameter ADDR_WIDTH = 32,
     // Width of wstrb (width of data bus in words)
     parameter STRB_WIDTH = (DATA_WIDTH/8),
+    // Width of user bus in bits
+    parameter USER_WIDTH = 8,
+    
     // Timeout delay (cycles)
     parameter TIMEOUT = 4
+
 )
 (
     input  wire                   clk,
@@ -52,7 +56,7 @@ module axil_reg_if #
     input  wire [ADDR_WIDTH-1:0]  s_axil_awaddr,
     input  wire [2:0]             s_axil_awprot,
     input  wire                   s_axil_awvalid,
-    input wire  [8-1:0]           s_axil_awuser,
+    input wire  [USER_WIDTH-1:0]  s_axil_awuser,
     output wire                   s_axil_awready,
     input  wire [DATA_WIDTH-1:0]  s_axil_wdata,
     input  wire [STRB_WIDTH-1:0]  s_axil_wstrb,
@@ -63,7 +67,7 @@ module axil_reg_if #
     input  wire                   s_axil_bready,
     input  wire [ADDR_WIDTH-1:0]  s_axil_araddr,
     input  wire [2:0]             s_axil_arprot,
-    input wire  [8-1:0]           s_axil_aruser,
+    input wire  [USER_WIDTH-1:0]  s_axil_aruser,
     input  wire                   s_axil_arvalid,
     output wire                   s_axil_arready,
     output wire [DATA_WIDTH-1:0]  s_axil_rdata,
@@ -76,13 +80,13 @@ module axil_reg_if #
      */
     output wire [ADDR_WIDTH-1:0]  reg_wr_addr,
     output wire [DATA_WIDTH-1:0]  reg_wr_data,
-    output wire [8-1:0]           reg_wr_user,
+    output wire [USER_WIDTH-1:0]  reg_wr_user,
     output wire [STRB_WIDTH-1:0]  reg_wr_strb,
     output wire                   reg_wr_en,
     input  wire                   reg_wr_wait,
     input  wire                   reg_wr_ack,
     output wire [ADDR_WIDTH-1:0]  reg_rd_addr,
-    output wire [8-1:0]           reg_rd_user,
+    output wire [USER_WIDTH-1:0]  reg_rd_user,
     output wire                   reg_rd_en,
     input  wire [DATA_WIDTH-1:0]  reg_rd_data,
     input  wire                   reg_rd_wait,
@@ -93,6 +97,7 @@ axil_reg_if_wr #(
     .DATA_WIDTH(DATA_WIDTH),
     .ADDR_WIDTH(ADDR_WIDTH),
     .STRB_WIDTH(STRB_WIDTH),
+    .USER_WIDTH(USER_WIDTH),
     .TIMEOUT(TIMEOUT)
 )
 axil_reg_if_wr_inst (
@@ -131,6 +136,7 @@ axil_reg_if_rd #(
     .DATA_WIDTH(DATA_WIDTH),
     .ADDR_WIDTH(ADDR_WIDTH),
     .STRB_WIDTH(STRB_WIDTH),
+    .USER_WIDTH(USER_WIDTH),
     .TIMEOUT(TIMEOUT)
 )
 axil_reg_if_rd_inst (

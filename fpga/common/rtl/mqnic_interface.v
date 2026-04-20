@@ -1187,7 +1187,7 @@ always @(posedge clk) begin
             end
             RBB+8'h10: ctrl_reg_rd_data_reg <= PORTS;                       // IF ctrl: Port count
             RBB+8'h14: ctrl_reg_rd_data_reg <= SCHEDULERS;                  // IF ctrl: Scheduler count
-            RBB+8'h18: ctrl_reg_rd_data_reg <= ctrl_reg_rd_user;            // IF ctrl: MAC
+            RBB+8'h18: ctrl_reg_rd_data_reg <= ctrl_reg_rd_user;            // IF ctrl: Assigned MAC/VF ID
             RBB+8'h20: ctrl_reg_rd_data_reg <= MAX_TX_SIZE;                 // IF ctrl: Max TX MTU
             RBB+8'h24: ctrl_reg_rd_data_reg <= MAX_RX_SIZE;                 // IF ctrl: Max RX MTU
             RBB+8'h28: ctrl_reg_rd_data_reg <= tx_mtu_reg;                  // IF ctrl: TX MTU
