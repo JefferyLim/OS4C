@@ -104,6 +104,7 @@ module mqnic_interface #
 
     // SRIOV Configuration Function ID Width
     parameter FUNCTION_ID_WIDTH = 8, // Scott
+    parameter F_COUNT = 252 + 1,
 
     // Interrupt configuration
     parameter IRQ_INDEX_WIDTH = EQN_WIDTH - FUNCTION_ID_WIDTH,
@@ -1448,6 +1449,7 @@ wire [FUNCTION_ID_WIDTH-1:0] axil_eqm_write_function_id;
 resource_translator #(
     .TOTAL_RESOURCES(2**EQN_WIDTH),
     .FUNCTION_ID_WIDTH(FUNCTION_ID_WIDTH),
+    .F_COUNT(F_COUNT),
     .RESOURCE_BIT_WIDTH(32'd4), // 4-bits per cpl queue
     .AXIL_ADDR_WIDTH(AXIL_ADDR_WIDTH)
 )
@@ -1476,6 +1478,7 @@ cpl_queue_manager #(
     .EVENT_WIDTH(IRQ_INDEX_WIDTH),
     .QUEUE_PTR_WIDTH(QUEUE_PTR_WIDTH),
     .FUNCTION_ID_WIDTH(FUNCTION_ID_WIDTH), // Scott
+    .F_COUNT(F_COUNT),
     .FILTER_EQ_PTR(0), // EQ points to IRQ -> does not need to be translated 
     .LOG_QUEUE_SIZE_WIDTH(LOG_QUEUE_SIZE_WIDTH),
     .CPL_SIZE(EVENT_SIZE),
@@ -1748,6 +1751,7 @@ cpl_queue_manager #(
     .EVENT_WIDTH(EQN_WIDTH),
     .QUEUE_PTR_WIDTH(QUEUE_PTR_WIDTH),
     .FUNCTION_ID_WIDTH(FUNCTION_ID_WIDTH), // Scott
+    .F_COUNT(F_COUNT),
     .FILTER_EQ_PTR(1), // CQ points to EQ -> needs to be translated
     .LOG_QUEUE_SIZE_WIDTH(LOG_QUEUE_SIZE_WIDTH),
     .CPL_SIZE(CPL_SIZE),
@@ -2025,6 +2029,7 @@ queue_manager #(
     .CPL_INDEX_WIDTH(CQN_WIDTH),
     .QUEUE_PTR_WIDTH(QUEUE_PTR_WIDTH),
     .FUNCTION_ID_WIDTH(FUNCTION_ID_WIDTH), // Scott
+    .F_COUNT(F_COUNT),
     .LOG_QUEUE_SIZE_WIDTH(LOG_QUEUE_SIZE_WIDTH),
     .DESC_SIZE(DESC_SIZE),
     .LOG_BLOCK_SIZE_WIDTH(LOG_BLOCK_SIZE_WIDTH),
@@ -2141,6 +2146,7 @@ queue_manager #(
     .CPL_INDEX_WIDTH(CQN_WIDTH),
     .QUEUE_PTR_WIDTH(QUEUE_PTR_WIDTH),
     .FUNCTION_ID_WIDTH(FUNCTION_ID_WIDTH), // Scott
+    .F_COUNT(F_COUNT),
     .LOG_QUEUE_SIZE_WIDTH(LOG_QUEUE_SIZE_WIDTH),
     .DESC_SIZE(DESC_SIZE),
     .LOG_BLOCK_SIZE_WIDTH(LOG_BLOCK_SIZE_WIDTH),

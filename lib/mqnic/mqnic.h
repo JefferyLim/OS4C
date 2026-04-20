@@ -137,6 +137,8 @@ struct mqnic {
     uint32_t git_hash;
     uint32_t rel_info;
 
+    uint32_t num_funcs;
+
     uint32_t app_id;
 
     uint32_t stats_offset;

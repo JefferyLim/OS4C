@@ -39,8 +39,7 @@ MODULE_PARM_DESC(link_status_poll,
 
 #ifdef CONFIG_PCI
 static const struct pci_device_id mqnic_pci_id_table[] = {
-	{PCI_DEVICE(0x1234, 0x1001)},
-	{PCI_DEVICE(0x5543, 0x1001)},
+	{PCI_DEVICE(0x1234, 0x0000)},
 	{0 /* end */ }
 };
 
@@ -676,17 +675,10 @@ static int mqnic_pci_probe(struct pci_dev *pdev, const struct pci_device_id *ent
 	if (ret)
 		goto fail_common;
 
-	ret = pci_enable_sriov(pdev, mqnic->num_funcs);
-	if (ret) {
-		dev_err(dev, "Failed to set up SR-IOV");
-		goto fail_sriov;
-	}
 	// probe complete
 	return 0;
 
 	// error handling
-fail_sriov:
-	pci_disable_sriov(pdev);
 fail_common:
 	pci_clear_master(pdev);
 	mqnic_irq_deinit_pcie(mqnic);

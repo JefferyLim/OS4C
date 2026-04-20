@@ -98,7 +98,9 @@ module rx_engine #
     // AXI stream tuser signal width
     parameter AXIS_RX_USER_WIDTH = (PTP_TS_ENABLE ? PTP_TS_WIDTH : 0) + 1,
     // SRIOV Function ID width 
-    parameter FUNCTION_ID_WIDTH = 8 // Scott
+    parameter FUNCTION_ID_WIDTH = 8, // Scott
+    // SRIOV Number of Functions
+    parameter F_COUNT = 252+1
 	)
 (
     input  wire                             clk,

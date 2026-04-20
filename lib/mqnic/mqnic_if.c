@@ -67,7 +67,7 @@ struct mqnic_if *mqnic_if_open(struct mqnic *dev, int index, volatile uint8_t *r
     }
 
     offset = mqnic_reg_read32(interface->eq_rb->regs, MQNIC_RB_EQM_REG_OFFSET);
-    count = mqnic_reg_read32(interface->eq_rb->regs, MQNIC_RB_EQM_REG_COUNT)/256;
+    count = mqnic_reg_read32(interface->eq_rb->regs, MQNIC_RB_EQM_REG_COUNT)/resources;
     stride = mqnic_reg_read32(interface->eq_rb->regs, MQNIC_RB_EQM_REG_STRIDE);
 
     if (count > MQNIC_MAX_EQ)
@@ -86,8 +86,18 @@ struct mqnic_if *mqnic_if_open(struct mqnic *dev, int index, volatile uint8_t *r
         goto fail;
     }
 
+    uint32_t num_funcs = dev->num_funcs + 1; // + 1 to account for physical function
+    num_funcs--;
+    num_funcs |= num_funcs >> 1;
+    num_funcs |= num_funcs >> 2;
+    num_funcs |= num_funcs >> 4;
+    num_funcs |= num_funcs >> 8;
+    num_funcs |= num_funcs >> 16;
+    num_funcs++;
+	uint32_t resources = num_funcs;
+
     offset = mqnic_reg_read32(interface->cq_rb->regs, MQNIC_RB_CQM_REG_OFFSET);
-    count = mqnic_reg_read32(interface->cq_rb->regs, MQNIC_RB_CQM_REG_COUNT)/256;
+    count = mqnic_reg_read32(interface->cq_rb->regs, MQNIC_RB_CQM_REG_COUNT)/resources;
     stride = mqnic_reg_read32(interface->cq_rb->regs, MQNIC_RB_CQM_REG_STRIDE);
 
     if (count > MQNIC_MAX_CQ)
@@ -107,7 +117,7 @@ struct mqnic_if *mqnic_if_open(struct mqnic *dev, int index, volatile uint8_t *r
     }
 
     offset = mqnic_reg_read32(interface->txq_rb->regs, MQNIC_RB_TX_QM_REG_OFFSET);
-    count = mqnic_reg_read32(interface->txq_rb->regs, MQNIC_RB_TX_QM_REG_COUNT)/256;
+    count = mqnic_reg_read32(interface->txq_rb->regs, MQNIC_RB_TX_QM_REG_COUNT)/resources;
     stride = mqnic_reg_read32(interface->txq_rb->regs, MQNIC_RB_TX_QM_REG_STRIDE);
 
     if (count > MQNIC_MAX_TXQ)
@@ -127,7 +137,7 @@ struct mqnic_if *mqnic_if_open(struct mqnic *dev, int index, volatile uint8_t *r
     }
 
     offset = mqnic_reg_read32(interface->rxq_rb->regs, MQNIC_RB_RX_QM_REG_OFFSET);
-    count = mqnic_reg_read32(interface->rxq_rb->regs, MQNIC_RB_RX_QM_REG_COUNT)/256;
+    count = mqnic_reg_read32(interface->rxq_rb->regs, MQNIC_RB_RX_QM_REG_COUNT)/resources;
     stride = mqnic_reg_read32(interface->rxq_rb->regs, MQNIC_RB_RX_QM_REG_STRIDE);
 
     if (count > MQNIC_MAX_RXQ)

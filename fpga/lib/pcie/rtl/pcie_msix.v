@@ -44,7 +44,10 @@ module pcie_msix #
     // TLP interface configuration
     parameter TLP_HDR_WIDTH = 128,
     parameter TLP_FORCE_64_BIT_ADDR = 0,
-	parameter FUNCTION_ID_WIDTH = 8 // Scott
+
+    // SRIOV Parameters
+	parameter FUNCTION_ID_WIDTH = 8, // Scott
+	parameter F_COUNT = 252+1
 )
 (
     input  wire                        clk,
@@ -102,12 +105,15 @@ module pcie_msix #
     input  wire                        msix_mask
 );
 
-parameter TBL_ADDR_WIDTH = IRQ_INDEX_WIDTH+1;
+parameter F_COUNT_WIDTH = $clog2(F_COUNT);
+parameter NUM_FUNCS = 2**(F_COUNT_WIDTH); // Rounded up
+
+parameter TBL_ADDR_WIDTH = IRQ_INDEX_WIDTH+F_COUNT_WIDTH+1;
 parameter NUM_TABLE_ENTRIES = 2**TBL_ADDR_WIDTH; // Scott
-parameter NUM_ENTRIES_PER_FUNC = NUM_TABLE_ENTRIES / 2**FUNCTION_ID_WIDTH;
+parameter NUM_ENTRIES_PER_FUNC = NUM_TABLE_ENTRIES / NUM_FUNCS;
 parameter CLOG_NUM_ENTRIES_PER_FUNC = $clog2(NUM_ENTRIES_PER_FUNC);
 
-parameter PBA_ADDR_WIDTH = IRQ_INDEX_WIDTH > 6 ? IRQ_INDEX_WIDTH-6 : 0;
+parameter PBA_ADDR_WIDTH = (F_COUNT_WIDTH + IRQ_INDEX_WIDTH) > 6 ? (F_COUNT_WIDTH + IRQ_INDEX_WIDTH)-6 : 0;
 parameter PBA_ADDR_WIDTH_INT = PBA_ADDR_WIDTH > 0 ? PBA_ADDR_WIDTH : 1;
 
 parameter INDEX_SHIFT = $clog2(64/8);

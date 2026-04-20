@@ -1292,8 +1292,9 @@ wire [FUNCTION_ID_WIDTH-1:0] axil_msix_write_function_id;
 
 // Scott
 resource_translator #(
-    .TOTAL_RESOURCES(2**(FUNCTION_ID_WIDTH + IRQ_INDEX_WIDTH + 1)),
+    .TOTAL_RESOURCES(2**($clog2(F_COUNT) + IRQ_INDEX_WIDTH + 1)),
     .FUNCTION_ID_WIDTH(FUNCTION_ID_WIDTH),
+    .F_COUNT(F_COUNT),
     .RESOURCE_BIT_WIDTH(32'd3), // 3-bits per msi-x
     .AXIL_ADDR_WIDTH(AXIL_MSIX_ADDR_WIDTH)
 )
@@ -1312,12 +1313,14 @@ pcie_msix_resource_translator (
 );
 
 pcie_msix #(
-    .IRQ_INDEX_WIDTH(FUNCTION_ID_WIDTH + IRQ_INDEX_WIDTH), // Scott
+    .IRQ_INDEX_WIDTH(IRQ_INDEX_WIDTH), // Scott
     .AXIL_DATA_WIDTH(AXIL_CTRL_DATA_WIDTH),
     .AXIL_ADDR_WIDTH(AXIL_MSIX_ADDR_WIDTH),
     .AXIL_STRB_WIDTH(AXIL_CTRL_STRB_WIDTH),
     .TLP_HDR_WIDTH(TLP_HDR_WIDTH),
-    .TLP_FORCE_64_BIT_ADDR(TLP_FORCE_64_BIT_ADDR)
+    .TLP_FORCE_64_BIT_ADDR(TLP_FORCE_64_BIT_ADDR),
+    .FUNCTION_ID_WIDTH(FUNCTION_ID_WIDTH),
+    .F_COUNT(F_COUNT)
 )
 pcie_msix_inst (
     .clk(clk),
@@ -1643,6 +1646,7 @@ mqnic_core #(
 
     // SRIOV Configuration
     .FUNCTION_ID_WIDTH(FUNCTION_ID_WIDTH), // Scott
+    .F_COUNT(F_COUNT),
 
     .PORT_COUNT(PORT_COUNT),
 
