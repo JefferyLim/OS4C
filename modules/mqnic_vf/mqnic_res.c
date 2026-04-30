@@ -1,0 +1,1 @@
+../mqnic/mqnic_res.c

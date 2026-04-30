@@ -104,7 +104,7 @@ module pcie_msix #
 
 parameter TBL_ADDR_WIDTH = IRQ_INDEX_WIDTH+1;
 parameter NUM_TABLE_ENTRIES = 2**TBL_ADDR_WIDTH; // Scott
-parameter NUM_ENTRIES_PER_FUNC = NUM_TABLE_ENTRIES / FUNCTION_ID_WIDTH;
+parameter NUM_ENTRIES_PER_FUNC = NUM_TABLE_ENTRIES / 2**FUNCTION_ID_WIDTH;
 parameter CLOG_NUM_ENTRIES_PER_FUNC = $clog2(NUM_ENTRIES_PER_FUNC);
 
 parameter PBA_ADDR_WIDTH = IRQ_INDEX_WIDTH > 6 ? IRQ_INDEX_WIDTH-6 : 0;
@@ -303,9 +303,9 @@ always @* begin
     tlp_hdr[109:108] = 2'b00; // attr
     tlp_hdr[107:106] = 3'b000; // AT
     tlp_hdr[105:96] = 10'd1; // length
-    // DW 1
+    // DW 
 	//$display("Scott irq_index_reg = %b", irq_index_reg);
-	func_id[7:0] = irq_index_reg >> CLOG_NUM_ENTRIES_PER_FUNC;
+	func_id[7:0] = irq_index_reg >> (CLOG_NUM_ENTRIES_PER_FUNC-1);
     tlp_hdr[95:80] = {8'b0, func_id}; // requester ID
 	//$display("Scott tlp_hdr = %b ", tlp_hdr[95:80]);
     tlp_hdr[79:72] = 8'd0; // tag

@@ -785,6 +785,7 @@ if (APP_ENABLE) begin : pcie_tlp_mux
         .fifo_half_full(),
         .fifo_watermark()
     );
+     
 
     pcie_tlp_mux #(
         .PORTS(2),
@@ -1291,13 +1292,12 @@ wire [FUNCTION_ID_WIDTH-1:0] axil_msix_write_function_id;
 
 // Scott
 resource_translator #(
-    .TOTAL_RESOURCES(2**(FUNCTION_ID_WIDTH + IRQ_INDEX_WIDTH)),
+    .TOTAL_RESOURCES(2**(FUNCTION_ID_WIDTH + IRQ_INDEX_WIDTH + 1)),
     .FUNCTION_ID_WIDTH(FUNCTION_ID_WIDTH),
-    .RESOURCE_BIT_WIDTH(32'd2), // 4-bits per cpl queue
+    .RESOURCE_BIT_WIDTH(32'd3), // 3-bits per msi-x
     .AXIL_ADDR_WIDTH(AXIL_MSIX_ADDR_WIDTH)
 )
 pcie_msix_resource_translator (
-
     .input_write_address(axil_msix_awaddr),
     .input_write_function_id(axil_msix_awuser),
 

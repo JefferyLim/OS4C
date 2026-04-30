@@ -84,6 +84,8 @@ struct mqnic_if {
 
     uint32_t if_features;
 
+    uint32_t mac;
+
     uint32_t max_tx_mtu;
     uint32_t max_rx_mtu;
     uint32_t tx_fifo_depth;

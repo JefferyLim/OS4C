@@ -56,6 +56,8 @@ struct mqnic_if *mqnic_if_open(struct mqnic *dev, int index, volatile uint8_t *r
     interface->tx_fifo_depth = mqnic_reg_read32(interface->if_ctrl_rb->regs, MQNIC_RB_IF_CTRL_REG_TX_FIFO_DEPTH);
     interface->rx_fifo_depth = mqnic_reg_read32(interface->if_ctrl_rb->regs, MQNIC_RB_IF_CTRL_REG_RX_FIFO_DEPTH);
 
+    interface->mac = mqnic_reg_read32(interface->if_ctrl_rb->regs, MQNIC_RB_IF_CTRL_REG_MAC);
+
     interface->eq_rb = mqnic_find_reg_block(interface->rb_list, MQNIC_RB_EQM_TYPE, MQNIC_RB_EQM_VER, 0);
 
     if (!interface->eq_rb)
@@ -65,7 +67,7 @@ struct mqnic_if *mqnic_if_open(struct mqnic *dev, int index, volatile uint8_t *r
     }
 
     offset = mqnic_reg_read32(interface->eq_rb->regs, MQNIC_RB_EQM_REG_OFFSET);
-    count = mqnic_reg_read32(interface->eq_rb->regs, MQNIC_RB_EQM_REG_COUNT);
+    count = mqnic_reg_read32(interface->eq_rb->regs, MQNIC_RB_EQM_REG_COUNT)/256;
     stride = mqnic_reg_read32(interface->eq_rb->regs, MQNIC_RB_EQM_REG_STRIDE);
 
     if (count > MQNIC_MAX_EQ)
@@ -85,7 +87,7 @@ struct mqnic_if *mqnic_if_open(struct mqnic *dev, int index, volatile uint8_t *r
     }
 
     offset = mqnic_reg_read32(interface->cq_rb->regs, MQNIC_RB_CQM_REG_OFFSET);
-    count = mqnic_reg_read32(interface->cq_rb->regs, MQNIC_RB_CQM_REG_COUNT);
+    count = mqnic_reg_read32(interface->cq_rb->regs, MQNIC_RB_CQM_REG_COUNT)/256;
     stride = mqnic_reg_read32(interface->cq_rb->regs, MQNIC_RB_CQM_REG_STRIDE);
 
     if (count > MQNIC_MAX_CQ)
@@ -105,7 +107,7 @@ struct mqnic_if *mqnic_if_open(struct mqnic *dev, int index, volatile uint8_t *r
     }
 
     offset = mqnic_reg_read32(interface->txq_rb->regs, MQNIC_RB_TX_QM_REG_OFFSET);
-    count = mqnic_reg_read32(interface->txq_rb->regs, MQNIC_RB_TX_QM_REG_COUNT);
+    count = mqnic_reg_read32(interface->txq_rb->regs, MQNIC_RB_TX_QM_REG_COUNT)/256;
     stride = mqnic_reg_read32(interface->txq_rb->regs, MQNIC_RB_TX_QM_REG_STRIDE);
 
     if (count > MQNIC_MAX_TXQ)
@@ -125,7 +127,7 @@ struct mqnic_if *mqnic_if_open(struct mqnic *dev, int index, volatile uint8_t *r
     }
 
     offset = mqnic_reg_read32(interface->rxq_rb->regs, MQNIC_RB_RX_QM_REG_OFFSET);
-    count = mqnic_reg_read32(interface->rxq_rb->regs, MQNIC_RB_RX_QM_REG_COUNT);
+    count = mqnic_reg_read32(interface->rxq_rb->regs, MQNIC_RB_RX_QM_REG_COUNT)/256;
     stride = mqnic_reg_read32(interface->rxq_rb->regs, MQNIC_RB_RX_QM_REG_STRIDE);
 
     if (count > MQNIC_MAX_RXQ)

@@ -1,0 +1,1 @@
+../mqnic/mqnic_i2c.c
