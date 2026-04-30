@@ -1,1 +1,0 @@
-../mqnic/mqnic_ptp.c
