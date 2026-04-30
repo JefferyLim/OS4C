@@ -1732,7 +1732,7 @@ cpl_queue_resource_translator_inst(
     .input_write_function_id(axil_cqm_awuser),
 
     .input_read_address(axil_cqm_araddr),
-    .input_read_function_id(axil_eqm_aruser),
+    .input_read_function_id(axil_cqm_aruser),
 
     .output_read_address(axil_cqm_araddr_translated),
     .output_write_address(axil_cqm_awaddr_translated),

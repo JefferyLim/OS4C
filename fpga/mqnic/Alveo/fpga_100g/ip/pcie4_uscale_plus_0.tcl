@@ -1,6 +1,7 @@
 
 create_ip -name pcie4_uscale_plus -vendor xilinx.com -library ip -module_name pcie4_uscale_plus_0
-set_property -dict { 
+
+set_property -dict {
   CONFIG.PL_LINK_CAP_MAX_LINK_SPEED {8.0_GT/s}
   CONFIG.PL_LINK_CAP_MAX_LINK_WIDTH {X16}
   CONFIG.AXISTEN_IF_EXT_512_CQ_STRADDLE {true}
@@ -58,3 +59,4 @@ set_property -dict {
   CONFIG.PL_DISABLE_LANE_REVERSAL {TRUE}
   CONFIG.MSI_X_OPTIONS {MSI-X_External}
 } [get_ips pcie4_uscale_plus_0]
+
