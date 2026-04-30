@@ -1,1 +1,0 @@
-../mqnic/mqnic_clk_info.c
