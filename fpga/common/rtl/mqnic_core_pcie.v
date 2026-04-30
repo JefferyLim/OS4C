@@ -785,7 +785,6 @@ if (APP_ENABLE) begin : pcie_tlp_mux
         .fifo_half_full(),
         .fifo_watermark()
     );
-     
 
     pcie_tlp_mux #(
         .PORTS(2),
