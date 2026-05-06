@@ -232,7 +232,6 @@ void mqnic_process_eq(struct mqnic_eq *eq)
 
 			if (likely(cq)) {
 				if (likely(cq->handler)){
-				    dev_info(eq->dev, "%s: event source: %d", __func__, le16_to_cpu(event->source));    
                     cq->handler(cq);
                 }
 			} else {

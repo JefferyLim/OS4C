@@ -280,12 +280,10 @@ localparam TUSER_HASH_OFFSET = TUSER_PTP_TS_OFFSET + (PTP_TS_ENABLE ? PTP_TS_WID
 localparam TUSER_HASH_TYPE_OFFSET = TUSER_HASH_OFFSET + (RX_HASH_ENABLE ? RX_HASH_WIDTH : 0);
 localparam FUNCTION_ID_OFFSET = TUSER_HASH_TYPE_OFFSET + (RX_HASH_ENABLE ? RX_HASH_TYPE_WIDTH : 0);
 
-localparam NUM_FUNCS = 2**FUNCTION_ID_WIDTH;
+localparam NUM_FUNCS = 2**($clog2(F_COUNT));
 localparam TOTAL_QUEUES = 2**QUEUE_INDEX_WIDTH; // 4096
 localparam QUEUES_PER_VF = TOTAL_QUEUES / NUM_FUNCS; // 4096 divided 8 -> 512
 localparam CLOG2_QUEUES_PER_VF = $clog2(QUEUES_PER_VF); // log2(512) -> 9
-
-
 
 // bus width assertions
 initial begin
