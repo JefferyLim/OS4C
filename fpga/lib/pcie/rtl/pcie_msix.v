@@ -23,6 +23,24 @@ THE SOFTWARE.
 */
 
 // Language: Verilog 2001
+//
+// SR-IOV modifications relative to upstream pcie_msix:
+//
+//   - Adds FUNCTION_ID_WIDTH and F_COUNT parameters, plus per-function
+//     awuser/aruser/irq_function_id ports, so the MSI-X table is shared
+//     across PF + VFs.
+//   - Combined index space is { function_id, irq_index_within_function }.
+//     The full FUNCTION_ID_WIDTH is preserved for the TLP requester ID;
+//     only the low F_COUNT_WIDTH bits of function_id index tbl_mem.
+//   - PBA address shift uses log2(64) = 6 (rows are 64 bits wide).
+//   - PBA bit-set/clear literals are 64'h1 to keep shifts well-defined
+//     for bit positions >= 32.
+//   - PBA group-skip mask preserves the function_id portion of the
+//     combined index when advancing to the next 64-vector group.
+//   - TLP requester ID function field is taken from the latched
+//     irq_function_id_reg; the bus number comes from the high byte of
+//     the requester_id input. AXI-Lite address translation is expected
+//     to happen upstream (in the parent's resource_translator).
 
 `resetall
 `timescale 1ns / 1ps
@@ -44,10 +62,10 @@ module pcie_msix #
     // TLP interface configuration
     parameter TLP_HDR_WIDTH = 128,
     parameter TLP_FORCE_64_BIT_ADDR = 0,
-
-    // SRIOV Parameters
-	parameter FUNCTION_ID_WIDTH = 8, // Scott
-	parameter F_COUNT = 252+1
+    // SR-IOV: full PCIe function-id width (8 bits, non-ARI: dev[4:0]+func[2:0]).
+    parameter FUNCTION_ID_WIDTH = 8,
+    // SR-IOV: total functions sharing this MSI-X block (PF + VFs).
+    parameter F_COUNT = 252+1
 )
 (
     input  wire                        clk,
@@ -57,7 +75,8 @@ module pcie_msix #
      * AXI lite interface for MSI-X tables
      */
     input  wire [AXIL_ADDR_WIDTH-1:0]  s_axil_awaddr,
-	input  wire [FUNCTION_ID_WIDTH-1:0] s_axil_awuser, // Scott
+    // SR-IOV: function id of the AXI-Lite write originator.
+    input  wire [FUNCTION_ID_WIDTH-1:0] s_axil_awuser,
     input  wire [2:0]                  s_axil_awprot,
     input  wire                        s_axil_awvalid,
     output wire                        s_axil_awready,
@@ -69,7 +88,8 @@ module pcie_msix #
     output wire                        s_axil_bvalid,
     input  wire                        s_axil_bready,
     input  wire [AXIL_ADDR_WIDTH-1:0]  s_axil_araddr,
-	input  wire [FUNCTION_ID_WIDTH-1:0] s_axil_aruser, // Scott
+    // SR-IOV: function id of the AXI-Lite read originator.
+    input  wire [FUNCTION_ID_WIDTH-1:0] s_axil_aruser,
     input  wire [2:0]                  s_axil_arprot,
     input  wire                        s_axil_arvalid,
     output wire                        s_axil_arready,
@@ -81,8 +101,9 @@ module pcie_msix #
     /*
      * Interrupt request input
      */
-    input  wire [IRQ_INDEX_WIDTH - FUNCTION_ID_WIDTH - 1:0]   irq_index,
-    input  wire [FUNCTION_ID_WIDTH-1:0] irq_function_id, // Scott
+    input  wire [IRQ_INDEX_WIDTH-1:0]   irq_index,
+    // SR-IOV: function id of the function asserting this interrupt.
+    input  wire [FUNCTION_ID_WIDTH-1:0] irq_function_id,
     input  wire                         irq_valid,
     output wire                         irq_ready,
 
@@ -100,16 +121,27 @@ module pcie_msix #
     /*
      * Configuration
      */
+    // High byte (bus + dev) is consumed verbatim; the low byte is
+    // overwritten with the per-interrupt function id when forming the TLP.
     input  wire [15:0]                 requester_id,
     input  wire                        msix_enable,
     input  wire                        msix_mask
 );
 
 parameter F_COUNT_WIDTH = $clog2(F_COUNT);
-parameter NUM_FUNCS = 2**(F_COUNT_WIDTH); // Rounded up
 
+// Combined-index space: { function_id, irq_index_within_function }.
+// Width is FUNCTION_ID_WIDTH + IRQ_INDEX_WIDTH so the full function_id
+// survives the concatenation. Only the low F_COUNT_WIDTH bits of the
+// function_id portion are used to index tbl_mem; the upper bits are
+// carried only for the TLP requester ID.
+parameter COMBINED_INDEX_WIDTH = FUNCTION_ID_WIDTH + IRQ_INDEX_WIDTH;
+
+// Table address layout: [F_COUNT_WIDTH bits func][IRQ_INDEX_WIDTH bits idx][1 bit half]
 parameter TBL_ADDR_WIDTH = IRQ_INDEX_WIDTH+F_COUNT_WIDTH+1;
-parameter NUM_TABLE_ENTRIES = 2**TBL_ADDR_WIDTH; // Scott
+
+parameter NUM_TABLE_ENTRIES = 2**TBL_ADDR_WIDTH;
+parameter NUM_FUNCS = 2**(F_COUNT_WIDTH);
 parameter NUM_ENTRIES_PER_FUNC = NUM_TABLE_ENTRIES / NUM_FUNCS;
 parameter CLOG_NUM_ENTRIES_PER_FUNC = $clog2(NUM_ENTRIES_PER_FUNC);
 
@@ -132,12 +164,14 @@ initial begin
         $finish;
     end
 
-    if (AXIL_ADDR_WIDTH < IRQ_INDEX_WIDTH+5) begin
+    // Address-width check uses combined (func+idx) width, since translated
+    // addresses arriving here span the full combined namespace.
+    if (AXIL_ADDR_WIDTH < (F_COUNT_WIDTH + IRQ_INDEX_WIDTH)+5) begin
         $error("Error: AXI lite address width %d too narrow (instance %m)", AXIL_ADDR_WIDTH);
         $finish;
     end
 
-    if (IRQ_INDEX_WIDTH > 11) begin
+    if ((F_COUNT_WIDTH + IRQ_INDEX_WIDTH) > 11) begin
         $error("Error: IRQ index width must be 11 or less (instance %m)");
         $finish;
     end
@@ -158,8 +192,13 @@ localparam [1:0]
 
 reg [1:0] state_reg = STATE_IDLE, state_next;
 
-reg [IRQ_INDEX_WIDTH-1:0] irq_index_reg = 0, irq_index_next;
-reg [FUNCTION_ID_WIDTH-1:0] irq_function_id_reg, irq_function_id_next; // Scott
+// Holds { irq_function_id, irq_index } at full combined width. Wider than
+// the upstream IRQ_INDEX_WIDTH-only register because the function_id
+// portion needs to survive intact for use as the TLP requester ID.
+reg [COMBINED_INDEX_WIDTH-1:0] irq_index_reg = 0, irq_index_next;
+// Latched function id of the in-flight interrupt. Consumed by the TLP
+// header builder to form the requester ID function field.
+reg [FUNCTION_ID_WIDTH-1:0] irq_function_id_reg, irq_function_id_next;
 
 reg [63:0] vec_addr_reg = 0, vec_addr_next;
 reg [31:0] vec_data_reg = 0, vec_data_next;
@@ -201,11 +240,11 @@ reg tx_wr_req_tlp_valid_reg = 0, tx_wr_req_tlp_valid_next;
 reg msix_enable_reg = 1'b0;
 reg msix_mask_reg = 1'b0;
 
-// MSI-X table
+// MSI-X table. Sized for NUM_FUNCS * NUM_ENTRIES_PER_FUNC * 2 64-bit halves.
 (* ramstyle = "no_rw_check, mlab" *)
 reg [63:0] tbl_mem[(2**TBL_ADDR_WIDTH)-1:0];
 
-// MSI-X PBA
+// MSI-X PBA. One bit per vector, packed 64 vectors per row.
 (* ram_style = "distributed", ramstyle = "no_rw_check, mlab" *)
 reg [63:0] pba_mem[(2**PBA_ADDR_WIDTH)-1:0];
 
@@ -218,22 +257,31 @@ reg [63:0] pba_mem_rd_data_reg = 0;
 reg [63:0] tbl_axil_mem_rd_data_reg = 0;
 reg [63:0] pba_axil_mem_rd_data_reg = 0;
 
-// wire [TBL_ADDR_WIDTH-1:0] s_axil_awaddr_index_temp = s_axil_awaddr >> INDEX_SHIFT; // Scott
-// wire [TBL_ADDR_WIDTH-1:0] s_axil_awaddr_index; // Scott
-// assign s_axil_awaddr_index[CLOG_NUM_ENTRIES_PER_FUNC-1:0] = s_axil_awaddr_index_temp; // Scott
-// assign s_axil_awaddr_index[TBL_ADDR_WIDTH-1:CLOG_NUM_ENTRIES_PER_FUNC] = s_axil_awuser; // Scott
+// AXI-Lite addresses arrive pre-translated by the parent's
+// resource_translator: function_id is already encoded in the upper bits.
+wire [TBL_ADDR_WIDTH-1:0] s_axil_awaddr_index = s_axil_awaddr >> INDEX_SHIFT;
+wire [WORD_SELECT_WIDTH-1:0] s_axil_awaddr_word = AXIL_DATA_WIDTH < 64 ? s_axil_awaddr >> WORD_SELECT_SHIFT : 0;
 
-wire [TBL_ADDR_WIDTH-1:0] s_axil_awaddr_index = s_axil_awaddr >> INDEX_SHIFT; // Scott
-wire [WORD_SELECT_WIDTH-1:0] s_axil_awaddr_word = AXIL_DATA_WIDTH < 64 ? s_axil_awaddr >> WORD_SELECT_SHIFT : 0; // Scott
+wire [TBL_ADDR_WIDTH-1:0] s_axil_araddr_index = s_axil_araddr >> INDEX_SHIFT;
+wire [WORD_SELECT_WIDTH-1:0] s_axil_araddr_word = AXIL_DATA_WIDTH < 64 ? s_axil_araddr >> WORD_SELECT_SHIFT : 0;
 
+// Per-function vector index portion of irq_index_reg. Matches the
+// upstream irq_index_reg semantics; used for PBA bit position and
+// for the within-function index portion of the table address.
+wire [IRQ_INDEX_WIDTH-1:0] irq_index_within_func =
+    irq_index_reg[IRQ_INDEX_WIDTH-1:0];
 
-// wire [TBL_ADDR_WIDTH-1:0] s_axil_araddr_index_temp = s_axil_araddr >> INDEX_SHIFT; // Scott
-// wire [TBL_ADDR_WIDTH-1:0] s_axil_araddr_index;  // Scott
-// assign s_axil_araddr_index[CLOG_NUM_ENTRIES_PER_FUNC-1:0] = s_axil_araddr_index_temp; // Scott
-// assign s_axil_araddr_index[TBL_ADDR_WIDTH-1:CLOG_NUM_ENTRIES_PER_FUNC] = s_axil_aruser; // Scott
+// Function-id slice used to index tbl_mem and pba_mem. Truncated to
+// F_COUNT_WIDTH because that is what fits the table; the full
+// FUNCTION_ID_WIDTH copy lives in irq_function_id_reg.
+wire [F_COUNT_WIDTH-1:0] irq_func_for_tbl =
+    irq_index_reg[IRQ_INDEX_WIDTH +: F_COUNT_WIDTH];
 
-wire [TBL_ADDR_WIDTH-1:0] s_axil_araddr_index = s_axil_araddr >> INDEX_SHIFT;  // Scott
-wire [WORD_SELECT_WIDTH-1:0] s_axil_araddr_word = AXIL_DATA_WIDTH < 64 ? s_axil_araddr >> WORD_SELECT_SHIFT : 0; // Scott
+// Combined memory index: { func_for_tbl, irq_index_within_func }.
+// Equivalent to the low (F_COUNT_WIDTH+IRQ_INDEX_WIDTH) bits of
+// irq_index_reg, but spelled out for clarity.
+wire [F_COUNT_WIDTH+IRQ_INDEX_WIDTH-1:0] tbl_combined_index =
+    {irq_func_for_tbl, irq_index_within_func};
 
 assign s_axil_awready = s_axil_awready_reg;
 assign s_axil_wready = s_axil_wready_reg;
@@ -270,15 +318,19 @@ always @* begin
     state_next = STATE_IDLE;
 
     tbl_mem_rd_en = 1'b0;
-    tbl_mem_addr = {irq_index_reg, 1'b0};
+    // Default uses tbl_combined_index. Per-state overrides below
+    // address tbl_mem with the same composition spelled out.
+    tbl_mem_addr = {tbl_combined_index, 1'b0};
 
     pba_mem_rd_en = 1'b0;
     pba_mem_wr_en = 1'b0;
-    pba_mem_addr = irq_index_reg >> 5;
+    // Shift by 6 = log2(64): pba_mem rows are 64 bits, so the row
+    // address is the combined index with the low 6 bits stripped off.
+    pba_mem_addr = tbl_combined_index >> 6;
     pba_mem_wr_data = 0;
 
     irq_index_next = irq_index_reg;
-    irq_function_id_next = irq_function_id_reg; // Scott
+    irq_function_id_next = irq_function_id_reg;
 
     vec_addr_next = vec_addr_reg;
     vec_data_next = vec_data_reg;
@@ -309,11 +361,13 @@ always @* begin
     tlp_hdr[109:108] = 2'b00; // attr
     tlp_hdr[107:106] = 3'b000; // AT
     tlp_hdr[105:96] = 10'd1; // length
-    // DW 
-	//$display("Scott irq_index_reg = %b", irq_index_reg);
-	func_id[7:0] = irq_index_reg >> (CLOG_NUM_ENTRIES_PER_FUNC-1);
-    tlp_hdr[95:80] = {8'b0, func_id}; // requester ID
-	//$display("Scott tlp_hdr = %b ", tlp_hdr[95:80]);
+    // DW 1
+    // Requester ID: bus+dev from the high byte of the requester_id input,
+    // function from the latched irq_function_id_reg. The parent is
+    // expected to drive requester_id with { bus_num, 5'd0, 3'd0 }; this
+    // module overwrites the function field per interrupt.
+    func_id[7:0] = irq_function_id_reg;
+    tlp_hdr[95:80] = {requester_id[15:8], func_id};
     tlp_hdr[79:72] = 8'd0; // tag
     tlp_hdr[71:68] = 4'b0000; // last BE
     tlp_hdr[67:64] = 4'b1111; // first BE
@@ -336,38 +390,47 @@ always @* begin
             if (irq_valid && irq_ready) begin
                 // new request
                 irq_ready_next = 1'b0;
+                // Capture the full FUNCTION_ID_WIDTH function id so it is
+                // available later for the TLP requester ID. Only the low
+                // F_COUNT_WIDTH bits are used to address tbl_mem/pba_mem.
                 irq_index_next = {irq_function_id, irq_index};
                 irq_function_id_next = irq_function_id;
 
                 tbl_mem_rd_en = 1'b1;
-                tbl_mem_addr = {irq_index_next, 1'b0};
+                tbl_mem_addr = {irq_function_id[F_COUNT_WIDTH-1:0], irq_index, 1'b0};
 
                 pba_mem_rd_en = 1'b1;
-                pba_mem_addr = irq_index_next >> 6;
+                pba_mem_addr = {irq_function_id[F_COUNT_WIDTH-1:0], irq_index} >> 6;
 
                 state_next = STATE_READ_TBL_1;
             end else if (!irq_valid && msix_enable_reg && !msix_mask_reg) begin
                 // no new request waiting, scan PBA for masked requests
 
-                if (pba_mem_rd_data_reg[irq_index_reg & 6'h3f]) begin
+                if (pba_mem_rd_data_reg[irq_index_within_func & 6'h3f]) begin
                     // PBA bit for current index is set, try issuing it
                     irq_ready_next = 1'b0;
 
                     tbl_mem_rd_en = 1'b1;
-                    tbl_mem_addr = {irq_index_next, 1'b0};
+                    tbl_mem_addr = {tbl_combined_index, 1'b0};
 
                     pba_mem_rd_en = 1'b1;
-                    pba_mem_addr = irq_index_next >> 6;
+                    pba_mem_addr = tbl_combined_index >> 6;
 
                     state_next = STATE_READ_TBL_1;
                 end else begin
                     // PBA bit for current index is not set
                     if (pba_mem_rd_data_reg) begin
                         // at least one bit set in current group, move to next index
-                        irq_index_next = irq_index_reg + 1;
+                        irq_index_next = irq_index_reg + 1'b1;
                     end else begin
-                        // no bits set in current group, move to next group
-                        irq_index_next = (irq_index_reg & ({IRQ_INDEX_WIDTH{1'b1}} << 6)) + 7'd64;
+                        // No bits set in the current 64-vector group; advance
+                        // to the next group. Mask clears the low 6 bits
+                        // (within-row) and preserves the upper function-id
+                        // bits, so the scan can cross function boundaries
+                        // naturally as the index increments through the
+                        // combined namespace.
+                        irq_index_next = (irq_index_reg &
+                            ~{{(COMBINED_INDEX_WIDTH-6){1'b0}}, 6'h3F}) + 7'd64;
                     end
 
                     pba_mem_rd_en = 1'b1;
@@ -382,7 +445,7 @@ always @* begin
         STATE_READ_TBL_1: begin
             // handle first table read
             tbl_mem_rd_en = 1'b1;
-            tbl_mem_addr = {irq_index_reg, 1'b1};
+            tbl_mem_addr = {tbl_combined_index, 1'b1};
 
             vec_addr_next = {tbl_mem_rd_data_reg[63:2], 2'b00};
 
@@ -399,28 +462,29 @@ always @* begin
             end else begin
                 // set PBA bit
                 pba_mem_wr_en = 1'b1;
-                pba_mem_wr_data = pba_mem_rd_data_reg | (1 << (irq_index_reg & 6'h3F));
+                // 64'h1 (not bare 1) so the shift is well-defined for
+                // bit positions in [32, 63]; bare 1 is a 32-bit literal.
+                pba_mem_wr_data = pba_mem_rd_data_reg |
+                    (64'h1 << (irq_index_within_func & 6'h3F));
                 irq_ready_next = 1'b1;
                 state_next = STATE_IDLE;
             end
         end
         STATE_SEND_TLP: begin
-			// $display("Scott func_id = %b ", func_id[7:0]);
             if (!tx_wr_req_tlp_valid || tx_wr_req_tlp_ready) begin
                 // send TLP
                 tx_wr_req_tlp_data_next = vec_data_reg;
                 tx_wr_req_tlp_hdr_next = tlp_hdr;
 
                 tx_wr_req_tlp_valid_next = 1'b1;
-				// $display("Scott tlp_valid_next = %b ",  tx_wr_req_tlp_valid_next);
-				// $display("Scott func_id = %b ", func_id[7:0]);
 
-                // clear PBA bit
+                // clear PBA bit (see 64'h1 note above)
                 pba_mem_wr_en = 1'b1;
-                pba_mem_wr_data = pba_mem_rd_data_reg & ~(1 << (irq_index_reg & 6'h3F));
+                pba_mem_wr_data = pba_mem_rd_data_reg &
+                    ~(64'h1 << (irq_index_within_func & 6'h3F));
 
                 // increment index so we don't check the same PBA bit immediately
-                irq_index_next = irq_index_reg + 1;
+                irq_index_next = irq_index_reg + 1'b1;
 
                 irq_ready_next = 1'b1;
                 state_next = STATE_IDLE;
@@ -466,7 +530,7 @@ always @(posedge clk) begin
         tx_wr_req_tlp_valid_reg <= 1'b0;
 	end else begin
 	    irq_index_reg <= irq_index_next;
-        irq_function_id_reg <= irq_function_id_next; // Scott
+        irq_function_id_reg <= irq_function_id_next;
 	end
 end
 

@@ -1032,14 +1032,15 @@ wire [REG_DATA_WIDTH-1:0]  ctrl_reg_rd_data;
 wire                       ctrl_reg_rd_wait;
 wire                       ctrl_reg_rd_ack;
 
-wire [8-1:0] ctrl_reg_wr_user;
-wire [8-1:0] ctrl_reg_rd_user;
+wire [FUNCTION_ID_WIDTH-1:0] ctrl_reg_wr_user;
+wire [FUNCTION_ID_WIDTH-1:0] ctrl_reg_rd_user;
 
 
 axil_reg_if #(
     .DATA_WIDTH(REG_DATA_WIDTH),
     .ADDR_WIDTH(REG_ADDR_WIDTH),
     .STRB_WIDTH(REG_STRB_WIDTH),
+    .USER_WIDTH(FUNCTION_ID_WIDTH),
     .TIMEOUT(4)
 )
 axil_reg_if_inst (
@@ -1723,6 +1724,7 @@ wire [FUNCTION_ID_WIDTH-1:0] axil_cqm_write_function_id;
 resource_translator #(
     .TOTAL_RESOURCES(2**CQN_WIDTH),
     .FUNCTION_ID_WIDTH(FUNCTION_ID_WIDTH),
+    .F_COUNT(F_COUNT),
     .RESOURCE_BIT_WIDTH(32'd4), // 4-bits per cpl queue
     .AXIL_ADDR_WIDTH(AXIL_ADDR_WIDTH)
 )
@@ -2000,6 +2002,7 @@ wire [FUNCTION_ID_WIDTH-1:0] axil_tx_qm_write_function_id;
 resource_translator #(
     .TOTAL_RESOURCES(2**TX_QUEUE_INDEX_WIDTH),
     .FUNCTION_ID_WIDTH(FUNCTION_ID_WIDTH),
+    .F_COUNT(F_COUNT),
     .RESOURCE_BIT_WIDTH(32'd5), // 5-bits per queue
     .AXIL_ADDR_WIDTH(AXIL_ADDR_WIDTH)
 )
@@ -2119,6 +2122,7 @@ wire [FUNCTION_ID_WIDTH-1:0] axil_rx_qm_write_function_id;
 resource_translator #(
     .TOTAL_RESOURCES(2**RX_QUEUE_INDEX_WIDTH),
     .FUNCTION_ID_WIDTH(FUNCTION_ID_WIDTH),
+    .F_COUNT(F_COUNT),
     .RESOURCE_BIT_WIDTH(32'd5), // 5-bits per queue
     .AXIL_ADDR_WIDTH(AXIL_ADDR_WIDTH)
 )
@@ -2954,7 +2958,8 @@ mqnic_interface_rx #(
     .AXIS_RX_USER_WIDTH(AXIS_IF_RX_USER_WIDTH),
 
     // SRIOV config
-    .FUNCTION_ID_WIDTH(FUNCTION_ID_WIDTH) // Scott
+    .FUNCTION_ID_WIDTH(FUNCTION_ID_WIDTH), // Scott
+    .F_COUNT(F_COUNT)
 )
 interface_rx_inst (
     .clk(clk),

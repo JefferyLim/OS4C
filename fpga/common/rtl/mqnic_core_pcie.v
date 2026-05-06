@@ -1292,10 +1292,10 @@ wire [FUNCTION_ID_WIDTH-1:0] axil_msix_write_function_id;
 
 // Scott
 resource_translator #(
-    .TOTAL_RESOURCES(2**($clog2(F_COUNT) + IRQ_INDEX_WIDTH + 1)),
+    .TOTAL_RESOURCES(2**($clog2(F_COUNT) + IRQ_INDEX_WIDTH)),
     .FUNCTION_ID_WIDTH(FUNCTION_ID_WIDTH),
     .F_COUNT(F_COUNT),
-    .RESOURCE_BIT_WIDTH(32'd3), // 3-bits per msi-x
+    .RESOURCE_BIT_WIDTH(32'd4), // 4 bits per MSI-X entry
     .AXIL_ADDR_WIDTH(AXIL_MSIX_ADDR_WIDTH)
 )
 pcie_msix_resource_translator (

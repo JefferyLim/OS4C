@@ -57,7 +57,7 @@ dict set params RELEASE_INFO  [format "32'h%08x" $release_info]
 # Board configuration
 dict set params CMS_ENABLE "1"
 dict set params FUNCTION_ID_WIDTH "8"
-dict set params VF_COUNT "124"
+dict set params VF_COUNT "4"
 
 # Structural configuration
 dict set params IF_COUNT "2"
