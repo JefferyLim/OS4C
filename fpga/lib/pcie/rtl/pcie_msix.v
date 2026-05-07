@@ -1,3 +1,1238 @@
+    // /*
+
+    // Copyright (c) 2022 Alex Forencich
+
+    // Permission is hereby granted, free of charge, to any person obtaining a copy
+    // of this software and associated documentation files (the "Software"), to deal
+    // in the Software without restriction, including without limitation the rights
+    // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+    // copies of the Software, and to permit persons to whom the Software is
+    // furnished to do so, subject to the following conditions:
+
+    // The above copyright notice and this permission notice shall be included in
+    // all copies or substantial portions of the Software.
+
+    // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+    // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY
+    // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+    // AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+    // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+    // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+    // THE SOFTWARE.
+
+    // */
+
+    // // Language: Verilog 2001
+
+    // `resetall
+    // `timescale 1ns / 1ps
+    // `default_nettype none
+
+    // /*
+    //  * PCIe MSI-X module
+    //  */
+    // module pcie_msix #
+    // (
+    //     // Interrupt configuration
+    //     parameter IRQ_INDEX_WIDTH = 11,
+
+    //     // AXI-lite interface configuration
+    //     parameter AXIL_DATA_WIDTH = 32,
+    //     parameter AXIL_ADDR_WIDTH = IRQ_INDEX_WIDTH+5,
+    //     parameter AXIL_STRB_WIDTH = (AXIL_DATA_WIDTH/8),
+
+    //     // TLP interface configuration
+    //     parameter TLP_HDR_WIDTH = 128,
+    //     parameter TLP_FORCE_64_BIT_ADDR = 0,
+    // 	parameter FUNCTION_ID_WIDTH = 8, // Scott
+    // 	parameter F_COUNT = 252+1
+    // )
+    // (
+    //     input  wire                        clk,
+    //     input  wire                        rst,
+
+    //     /*
+    //      * AXI lite interface for MSI-X tables
+    //      */
+    //     input  wire [AXIL_ADDR_WIDTH-1:0]  s_axil_awaddr,
+    // 	input  wire [FUNCTION_ID_WIDTH-1:0] s_axil_awuser, // Scott
+    //     input  wire [2:0]                  s_axil_awprot,
+    //     input  wire                        s_axil_awvalid,
+    //     output wire                        s_axil_awready,
+    //     input  wire [AXIL_DATA_WIDTH-1:0]  s_axil_wdata,
+    //     input  wire [AXIL_STRB_WIDTH-1:0]  s_axil_wstrb,
+    //     input  wire                        s_axil_wvalid,
+    //     output wire                        s_axil_wready,
+    //     output wire [1:0]                  s_axil_bresp,
+    //     output wire                        s_axil_bvalid,
+    //     input  wire                        s_axil_bready,
+    //     input  wire [AXIL_ADDR_WIDTH-1:0]  s_axil_araddr,
+    // 	input  wire [FUNCTION_ID_WIDTH-1:0] s_axil_aruser, // Scott
+    //     input  wire [2:0]                  s_axil_arprot,
+    //     input  wire                        s_axil_arvalid,
+    //     output wire                        s_axil_arready,
+    //     output wire [AXIL_DATA_WIDTH-1:0]  s_axil_rdata,
+    //     output wire [1:0]                  s_axil_rresp,
+    //     output wire                        s_axil_rvalid,
+    //     input  wire                        s_axil_rready,
+
+    //     /*
+    //      * Interrupt request input
+    //      */
+    //     input  wire [IRQ_INDEX_WIDTH-1:0]   irq_index,
+    //     input  wire [FUNCTION_ID_WIDTH-1:0] irq_function_id, // Scott
+    //     input  wire                         irq_valid,
+    //     output wire                         irq_ready,
+
+    //     /*
+    //      * Memory write TLP output
+    //      */
+    //     output wire [31:0]                 tx_wr_req_tlp_data,
+    //     output wire                        tx_wr_req_tlp_strb,
+    //     output wire [TLP_HDR_WIDTH-1:0]    tx_wr_req_tlp_hdr,
+    //     output wire                        tx_wr_req_tlp_valid,
+    //     output wire                        tx_wr_req_tlp_sop,
+    //     output wire                        tx_wr_req_tlp_eop,
+    //     input  wire                        tx_wr_req_tlp_ready,
+
+    //     /*
+    //      * Configuration
+    //      */
+    //     input  wire [15:0]                 requester_id,
+    //     input  wire                        msix_enable,
+    //     input  wire                        msix_mask
+    // );
+
+    // parameter F_COUNT_WIDTH = $clog2(F_COUNT);
+
+    // // 2 IRQs + 8 bits Func + 1?
+    // // 4 IRQs + 8 bits Func + 1 
+    // parameter TBL_ADDR_WIDTH = IRQ_INDEX_WIDTH+F_COUNT_WIDTH+1; 
+
+    // // 2** (1 + 8 + 1) = 2**10 = 1024 entries
+    // // 2** (2 + 8 + 1) = 2**11 = 2048 entries
+    // parameter NUM_TABLE_ENTRIES = 2**TBL_ADDR_WIDTH; // Scott
+    // parameter NUM_FUNCS = 2**(F_COUNT_WIDTH);
+    // parameter NUM_ENTRIES_PER_FUNC = NUM_TABLE_ENTRIES / NUM_FUNCS;
+    // parameter CLOG_NUM_ENTRIES_PER_FUNC = $clog2(NUM_ENTRIES_PER_FUNC);
+
+    // parameter PBA_ADDR_WIDTH = (F_COUNT_WIDTH + IRQ_INDEX_WIDTH) > 6 ? (F_COUNT_WIDTH + IRQ_INDEX_WIDTH)-6 : 0;
+    // parameter PBA_ADDR_WIDTH_INT = PBA_ADDR_WIDTH > 0 ? PBA_ADDR_WIDTH : 1;
+
+    // parameter INDEX_SHIFT = $clog2(64/8);
+    // parameter WORD_SELECT_SHIFT = $clog2(AXIL_DATA_WIDTH/8);
+    // parameter WORD_SELECT_WIDTH = 64 > AXIL_DATA_WIDTH ? $clog2((64+7)/8) - $clog2(AXIL_DATA_WIDTH/8) : 0;
+
+    // // bus width assertions
+    // initial begin
+    //     if (AXIL_STRB_WIDTH * 8 != AXIL_DATA_WIDTH) begin
+    //         $error("Error: AXI lite interface requires byte (8-bit) granularity (instance %m)");
+    //         $finish;
+    //     end
+
+    //     if (AXIL_DATA_WIDTH > 64) begin
+    //         $error("Error: AXI lite data width must be 64 or less (instance %m)");
+    //         $finish;
+    //     end
+
+    //     if (AXIL_ADDR_WIDTH < (F_COUNT_WIDTH + IRQ_INDEX_WIDTH)+5) begin
+    //         $error("Error: AXI lite address width %d too narrow (instance %m)", AXIL_ADDR_WIDTH);
+    //         $finish;
+    //     end
+
+    //     if ((F_COUNT_WIDTH + IRQ_INDEX_WIDTH) > 11) begin
+    //         $error("Error: IRQ index width must be 11 or less (instance %m)");
+    //         $finish;
+    //     end
+    // end
+
+    // localparam [2:0]
+    //     TLP_FMT_3DW = 3'b000,
+    //     TLP_FMT_4DW = 3'b001,
+    //     TLP_FMT_3DW_DATA = 3'b010,
+    //     TLP_FMT_4DW_DATA = 3'b011,
+    //     TLP_FMT_PREFIX = 3'b100;
+
+    // localparam [1:0]
+    //     STATE_IDLE = 2'd0,
+    //     STATE_READ_TBL_1 = 2'd1,
+    //     STATE_READ_TBL_2 = 2'd2,
+    //     STATE_SEND_TLP = 2'd3;
+
+    // reg [1:0] state_reg = STATE_IDLE, state_next;
+
+    // reg [F_COUNT + IRQ_INDEX_WIDTH-1:0] irq_index_reg = 0, irq_index_next;
+    // reg [FUNCTION_ID_WIDTH-1:0] irq_function_id_reg, irq_function_id_next; // Scott
+
+    // reg [63:0] vec_addr_reg = 0, vec_addr_next;
+    // reg [31:0] vec_data_reg = 0, vec_data_next;
+    // reg vec_mask_reg = 1'b0, vec_mask_next;
+
+    // reg last_read_reg = 1'b0, last_read_next;
+
+    // reg [127:0] tlp_hdr;
+
+    // reg read_eligible;
+    // reg write_eligible;
+
+    // reg tbl_axil_mem_rd_en;
+    // reg tbl_axil_mem_wr_en;
+    // reg [7:0] tbl_axil_mem_wr_be;
+    // reg [63:0] tbl_axil_mem_wr_data;
+    // reg pba_axil_mem_rd_en;
+
+    // reg tbl_mem_rd_en;
+    // reg [TBL_ADDR_WIDTH-1:0] tbl_mem_addr;
+    // reg pba_mem_rd_en;
+    // reg pba_mem_wr_en;
+    // reg [PBA_ADDR_WIDTH-1:0] pba_mem_addr;
+    // reg [63:0] pba_mem_wr_data;
+
+    // reg s_axil_awready_reg = 1'b0, s_axil_awready_next;
+    // reg s_axil_wready_reg = 1'b0, s_axil_wready_next;
+    // reg s_axil_bvalid_reg = 1'b0, s_axil_bvalid_next;
+    // reg s_axil_arready_reg = 1'b0, s_axil_arready_next;
+    // reg [AXIL_DATA_WIDTH-1:0] s_axil_rdata_reg = {AXIL_DATA_WIDTH{1'b0}}, s_axil_rdata_next;
+    // reg s_axil_rvalid_reg = 1'b0, s_axil_rvalid_next;
+
+    // reg irq_ready_reg = 1'b0, irq_ready_next;
+
+    // reg [31:0] tx_wr_req_tlp_data_reg = 0, tx_wr_req_tlp_data_next;
+    // reg [TLP_HDR_WIDTH-1:0] tx_wr_req_tlp_hdr_reg = 0, tx_wr_req_tlp_hdr_next;
+    // reg tx_wr_req_tlp_valid_reg = 0, tx_wr_req_tlp_valid_next;
+
+    // reg msix_enable_reg = 1'b0;
+    // reg msix_mask_reg = 1'b0;
+
+    // // MSI-X table
+    // (* ramstyle = "no_rw_check, mlab" *)
+    // reg [63:0] tbl_mem[(2**TBL_ADDR_WIDTH)-1:0];
+
+    // // MSI-X PBA
+    // (* ram_style = "distributed", ramstyle = "no_rw_check, mlab" *)
+    // reg [63:0] pba_mem[(2**PBA_ADDR_WIDTH)-1:0];
+
+    // reg tbl_rd_data_valid_reg = 1'b0, tbl_rd_data_valid_next;
+    // reg pba_rd_data_valid_reg = 1'b0, pba_rd_data_valid_next;
+    // reg [WORD_SELECT_WIDTH-1:0] rd_data_shift_reg = 0, rd_data_shift_next;
+
+    // reg [63:0] tbl_mem_rd_data_reg = 0;
+    // reg [63:0] pba_mem_rd_data_reg = 0;
+    // reg [63:0] tbl_axil_mem_rd_data_reg = 0;
+    // reg [63:0] pba_axil_mem_rd_data_reg = 0;
+
+    // // wire [TBL_ADDR_WIDTH-1:0] s_axil_awaddr_index_temp = s_axil_awaddr >> INDEX_SHIFT; // Scott
+    // // wire [TBL_ADDR_WIDTH-1:0] s_axil_awaddr_index; // Scott
+    // // assign s_axil_awaddr_index[CLOG_NUM_ENTRIES_PER_FUNC-1:0] = s_axil_awaddr_index_temp; // Scott
+    // // assign s_axil_awaddr_index[TBL_ADDR_WIDTH-1:CLOG_NUM_ENTRIES_PER_FUNC] = s_axil_awuser; // Scott
+
+    // wire [TBL_ADDR_WIDTH-1:0] s_axil_awaddr_index = s_axil_awaddr >> INDEX_SHIFT; // Scott
+    // wire [WORD_SELECT_WIDTH-1:0] s_axil_awaddr_word = AXIL_DATA_WIDTH < 64 ? s_axil_awaddr >> WORD_SELECT_SHIFT : 0; // Scott
+
+
+    // // wire [TBL_ADDR_WIDTH-1:0] s_axil_araddr_index_temp = s_axil_araddr >> INDEX_SHIFT; // Scott
+    // // wire [TBL_ADDR_WIDTH-1:0] s_axil_araddr_index;  // Scott
+    // // assign s_axil_araddr_index[CLOG_NUM_ENTRIES_PER_FUNC-1:0] = s_axil_araddr_index_temp; // Scott
+    // // assign s_axil_araddr_index[TBL_ADDR_WIDTH-1:CLOG_NUM_ENTRIES_PER_FUNC] = s_axil_aruser; // Scott
+
+    // wire [TBL_ADDR_WIDTH-1:0] s_axil_araddr_index = s_axil_araddr >> INDEX_SHIFT;  // Scott
+    // wire [WORD_SELECT_WIDTH-1:0] s_axil_araddr_word = AXIL_DATA_WIDTH < 64 ? s_axil_araddr >> WORD_SELECT_SHIFT : 0; // Scott
+
+    // assign s_axil_awready = s_axil_awready_reg;
+    // assign s_axil_wready = s_axil_wready_reg;
+    // assign s_axil_bresp = 2'b00;
+    // assign s_axil_bvalid = s_axil_bvalid_reg;
+    // assign s_axil_arready = s_axil_arready_reg;
+    // assign s_axil_rdata = s_axil_rdata_reg;
+    // assign s_axil_rresp = 2'b00;
+    // assign s_axil_rvalid = s_axil_rvalid_reg;
+
+    // assign irq_ready = irq_ready_reg;
+
+    // assign tx_wr_req_tlp_data = tx_wr_req_tlp_data_reg;
+    // assign tx_wr_req_tlp_strb = 1;
+    // assign tx_wr_req_tlp_hdr = tx_wr_req_tlp_hdr_reg;
+    // assign tx_wr_req_tlp_valid = tx_wr_req_tlp_valid_reg;
+    // assign tx_wr_req_tlp_sop = 1'b1;
+    // assign tx_wr_req_tlp_eop = 1'b1;
+
+    // integer i;
+
+    // initial begin
+    //     for (i = 0; i < 2**TBL_ADDR_WIDTH; i = i + 1) begin
+    //         tbl_mem[i] = 0;
+    //     end
+    //     for (i = 0; i < 2**PBA_ADDR_WIDTH; i = i + 1) begin
+    //         pba_mem[i] = 0;
+    //     end
+    // end
+
+    // reg [7:0] func_id;
+
+    // always @* begin
+    //     state_next = STATE_IDLE;
+
+    //     tbl_mem_rd_en = 1'b0;
+    //     tbl_mem_addr = {irq_index_reg, 1'b0};
+
+    //     pba_mem_rd_en = 1'b0;
+    //     pba_mem_wr_en = 1'b0;
+    //     pba_mem_addr = irq_index_reg >> 5;
+    //     pba_mem_wr_data = 0;
+
+    //     irq_index_next = irq_index_reg;
+    //     irq_function_id_next = irq_function_id_reg; // Scott
+
+    //     vec_addr_next = vec_addr_reg;
+    //     vec_data_next = vec_data_reg;
+    //     vec_mask_next = vec_mask_reg;
+
+    //     irq_ready_next = 1'b0;
+
+    //     tx_wr_req_tlp_data_next = tx_wr_req_tlp_data_reg;
+    //     tx_wr_req_tlp_hdr_next = tx_wr_req_tlp_hdr_reg;
+    //     tx_wr_req_tlp_valid_next = tx_wr_req_tlp_valid_reg && !tx_wr_req_tlp_ready;
+
+    //     // TLP header
+    //     // DW 0
+    //     if (((vec_addr_reg[63:2] >> 30) != 0) || TLP_FORCE_64_BIT_ADDR) begin
+    //         tlp_hdr[127:125] = TLP_FMT_4DW_DATA; // fmt - 4DW with data
+    //     end else begin
+    //         tlp_hdr[127:125] = TLP_FMT_3DW_DATA; // fmt - 3DW with data
+    //     end
+    //     tlp_hdr[124:120] = 5'b00000; // type - write
+    //     tlp_hdr[119] = 1'b0; // T9
+    //     tlp_hdr[118:116] = 3'b000; // TC
+    //     tlp_hdr[115] = 1'b0; // T8
+    //     tlp_hdr[114] = 1'b0; // attr
+    //     tlp_hdr[113] = 1'b0; // LN
+    //     tlp_hdr[112] = 1'b0; // TH
+    //     tlp_hdr[111] = 1'b0; // TD
+    //     tlp_hdr[110] = 1'b0; // EP
+    //     tlp_hdr[109:108] = 2'b00; // attr
+    //     tlp_hdr[107:106] = 3'b000; // AT
+    //     tlp_hdr[105:96] = 10'd1; // length
+    //     // DW 
+    // 	$display("Scott irq_index_reg = %b", irq_index_reg);
+    // 	$display("Scott irq_index_regA = %b", irq_index_reg >> (CLOG_NUM_ENTRIES_PER_FUNC-1));
+    // 	func_id[7:0] = irq_index_reg >> (CLOG_NUM_ENTRIES_PER_FUNC-1);
+    //     tlp_hdr[95:80] = {8'b0, func_id}; // requester ID
+    // 	//$display("Scott tlp_hdr = %b ", tlp_hdr[95:80]);
+    //     tlp_hdr[79:72] = 8'd0; // tag
+    //     tlp_hdr[71:68] = 4'b0000; // last BE
+    //     tlp_hdr[67:64] = 4'b1111; // first BE
+    //     if (((vec_addr_reg[63:2] >> 30) != 0) || TLP_FORCE_64_BIT_ADDR) begin
+    //         // DW 2+3
+    //         tlp_hdr[63:2] = vec_addr_reg[63:2]; // address
+    //         tlp_hdr[1:0] = 2'b00; // PH
+    //     end else begin
+    //         // DW 2
+    //         tlp_hdr[63:34] = vec_addr_reg[63:2]; // address
+    //         tlp_hdr[33:32] = 2'b00; // PH
+    //         // DW 3
+    //         tlp_hdr[31:0] = 32'd0;
+    //     end
+
+    //     case (state_reg)
+    //         STATE_IDLE: begin
+    //             irq_ready_next = 1'b1;
+
+    //             if (irq_valid && irq_ready) begin
+    //                 // new request
+    //                 irq_ready_next = 1'b0;
+    //                 irq_index_next = {irq_function_id[F_COUNT_WIDTH-1:0], irq_index};
+    //                 irq_function_id_next = irq_function_id;
+
+    //                 tbl_mem_rd_en = 1'b1;
+    //                 tbl_mem_addr = {irq_index_next, 1'b0};
+
+    //                 pba_mem_rd_en = 1'b1;
+    //                 pba_mem_addr = irq_index_next >> 6;
+
+    //                 state_next = STATE_READ_TBL_1;
+    //             end else if (!irq_valid && msix_enable_reg && !msix_mask_reg) begin
+    //                 // no new request waiting, scan PBA for masked requests
+
+    //                 if (pba_mem_rd_data_reg[irq_index_reg & 6'h3f]) begin
+    //                     // PBA bit for current index is set, try issuing it
+    //                     irq_ready_next = 1'b0;
+
+    //                     tbl_mem_rd_en = 1'b1;
+    //                     tbl_mem_addr = {irq_index_next, 1'b0};
+
+    //                     pba_mem_rd_en = 1'b1;
+    //                     pba_mem_addr = irq_index_next >> 6;
+
+    //                     state_next = STATE_READ_TBL_1;
+    //                 end else begin
+    //                     // PBA bit for current index is not set
+    //                     if (pba_mem_rd_data_reg) begin
+    //                         // at least one bit set in current group, move to next index
+    //                         irq_index_next = irq_index_reg + 1;
+    //                     end else begin
+    //                         // no bits set in current group, move to next group
+    //                         irq_index_next = (irq_index_reg & ({IRQ_INDEX_WIDTH{1'b1}} << 6)) + 7'd64;
+    //                     end
+
+    //                     pba_mem_rd_en = 1'b1;
+    //                     pba_mem_addr = irq_index_next >> 6;
+
+    //                     state_next = STATE_IDLE;
+    //                 end
+    //             end else begin
+    //                 state_next = STATE_IDLE;
+    //             end
+    //         end
+    //         STATE_READ_TBL_1: begin
+    //             // handle first table read
+    //             tbl_mem_rd_en = 1'b1;
+    //             tbl_mem_addr = {irq_index_reg, 1'b1};
+
+    //             vec_addr_next = {tbl_mem_rd_data_reg[63:2], 2'b00};
+
+    //             state_next = STATE_READ_TBL_2;
+    //         end
+    //         STATE_READ_TBL_2: begin
+    //             // handle second table read
+    //             vec_data_next = tbl_mem_rd_data_reg[31:0];
+    //             vec_mask_next = tbl_mem_rd_data_reg[32];
+
+    //             if (msix_enable_reg && !msix_mask_reg && !vec_mask_next) begin
+    //                 // send TLP
+    //                 state_next = STATE_SEND_TLP;
+    //             end else begin
+    //                 // set PBA bit
+    //                 pba_mem_wr_en = 1'b1;
+    //                 pba_mem_wr_data = pba_mem_rd_data_reg | (1 << (irq_index_reg & 6'h3F));
+    //                 irq_ready_next = 1'b1;
+    //                 state_next = STATE_IDLE;
+    //             end
+    //         end
+    //         STATE_SEND_TLP: begin
+    // 			// $display("Scott func_id = %b ", func_id[7:0]);
+    //             if (!tx_wr_req_tlp_valid || tx_wr_req_tlp_ready) begin
+    //                 // send TLP
+    //                 tx_wr_req_tlp_data_next = vec_data_reg;
+    //                 tx_wr_req_tlp_hdr_next = tlp_hdr;
+
+    //                 tx_wr_req_tlp_valid_next = 1'b1;
+    // 				// $display("Scott tlp_valid_next = %b ",  tx_wr_req_tlp_valid_next);
+    // 				// $display("Scott func_id = %b ", func_id[7:0]);
+
+    //                 // clear PBA bit
+    //                 pba_mem_wr_en = 1'b1;
+    //                 pba_mem_wr_data = pba_mem_rd_data_reg & ~(1 << (irq_index_reg & 6'h3F));
+
+    //                 // increment index so we don't check the same PBA bit immediately
+    //                 irq_index_next = irq_index_reg + 1;
+
+    //                 irq_ready_next = 1'b1;
+    //                 state_next = STATE_IDLE;
+    //             end else begin
+    //                 state_next = STATE_SEND_TLP;
+    //             end
+    //         end
+    //     endcase
+    // end
+
+    // always @(posedge clk) begin
+    //     state_reg <= state_next;
+
+    //     vec_addr_reg <= vec_addr_next;
+    //     vec_data_reg <= vec_data_next;
+    //     vec_mask_reg <= vec_mask_next;
+
+    //     irq_ready_reg <= irq_ready_next;
+
+    //     tx_wr_req_tlp_data_reg <= tx_wr_req_tlp_data_next;
+    //     tx_wr_req_tlp_hdr_reg <= tx_wr_req_tlp_hdr_next;
+    //     tx_wr_req_tlp_valid_reg <= tx_wr_req_tlp_valid_next;
+
+    //     msix_enable_reg <= msix_enable;
+    //     msix_mask_reg <= msix_mask;
+
+    //     if (tbl_mem_rd_en) begin
+    //         tbl_mem_rd_data_reg <= tbl_mem[tbl_mem_addr];
+    //     end
+
+    //     if (pba_mem_wr_en) begin
+    //         pba_mem[pba_mem_addr] <= pba_mem_wr_data;
+    //     end else if (pba_mem_rd_en) begin
+    //         pba_mem_rd_data_reg <= pba_mem[pba_mem_addr];
+    //     end
+
+    //     if (rst) begin
+    //         state_reg <= STATE_IDLE;
+
+    //         irq_ready_reg <= 1'b0;
+    // 		irq_index_reg <= 0;
+
+    //         tx_wr_req_tlp_valid_reg <= 1'b0;
+    // 	end else begin
+    // 	    irq_index_reg <= irq_index_next;
+    //         irq_function_id_reg <= irq_function_id_next; // Scott
+    // 	end
+    // end
+
+    // // AXI lite interface
+    // always @* begin
+    //     tbl_axil_mem_rd_en = 1'b0;
+    //     tbl_axil_mem_wr_en = 1'b0;
+    //     tbl_axil_mem_wr_be = s_axil_wstrb << (s_axil_awaddr_word * AXIL_STRB_WIDTH);
+    //     tbl_axil_mem_wr_data = {2**WORD_SELECT_WIDTH{s_axil_wdata}};
+    //     pba_axil_mem_rd_en = 1'b0;
+
+    //     tbl_rd_data_valid_next = tbl_rd_data_valid_reg;
+    //     pba_rd_data_valid_next = pba_rd_data_valid_reg;
+    //     rd_data_shift_next = rd_data_shift_reg;
+
+    //     last_read_next = last_read_reg;
+
+    //     s_axil_awready_next = 1'b0;
+    //     s_axil_wready_next = 1'b0;
+    //     s_axil_bvalid_next = s_axil_bvalid_reg && !s_axil_bready;
+
+    //     s_axil_arready_next = 1'b0;
+    //     s_axil_rdata_next = s_axil_rdata_reg;
+    //     s_axil_rvalid_next = s_axil_rvalid_reg && !s_axil_rready;
+
+    //     write_eligible = s_axil_awvalid && s_axil_wvalid && (!s_axil_bvalid || s_axil_bready) && (!s_axil_awready && !s_axil_wready);
+    //     read_eligible = s_axil_arvalid && (!s_axil_rvalid || s_axil_rready || !(tbl_rd_data_valid_reg || pba_rd_data_valid_reg)) && (!s_axil_arready);
+
+    //     if ((tbl_rd_data_valid_reg || pba_rd_data_valid_reg) && (!s_axil_rvalid || s_axil_rready)) begin
+    //         s_axil_rvalid_next = 1'b1;
+    //         tbl_rd_data_valid_next = 1'b0;
+    //         pba_rd_data_valid_next = 1'b0;
+
+    //         if (tbl_rd_data_valid_reg) begin
+    //             if (AXIL_DATA_WIDTH < 64) begin
+    //                 s_axil_rdata_next = tbl_axil_mem_rd_data_reg >> rd_data_shift_reg*AXIL_DATA_WIDTH;
+    //             end else begin
+    //                 s_axil_rdata_next = tbl_axil_mem_rd_data_reg;
+    //             end
+    //         end else begin
+    //             if (AXIL_DATA_WIDTH < 64) begin
+    //                 s_axil_rdata_next = pba_axil_mem_rd_data_reg >> rd_data_shift_reg*AXIL_DATA_WIDTH;
+    //             end else begin
+    //                 s_axil_rdata_next = pba_axil_mem_rd_data_reg;
+    //             end
+    //         end
+    //     end
+
+    //     if (write_eligible && (!read_eligible || last_read_reg)) begin
+    //         last_read_next = 1'b0;
+
+    //         s_axil_awready_next = 1'b1;
+    //         s_axil_wready_next = 1'b1;
+    //         s_axil_bvalid_next = 1'b1;
+
+    //         if (s_axil_awaddr[AXIL_ADDR_WIDTH-1] == 0) begin
+    //             tbl_axil_mem_wr_en = 1'b1;
+    //         end
+    //     end else if (read_eligible) begin
+    //         last_read_next = 1'b1;
+
+    //         s_axil_arready_next = 1'b1;
+
+    //         rd_data_shift_next = s_axil_araddr_word;
+
+    //         if (s_axil_araddr[AXIL_ADDR_WIDTH-1] == 0) begin
+    //             tbl_axil_mem_rd_en = 1'b1;
+    //             tbl_rd_data_valid_next = 1'b1;
+    //         end else begin
+    //             pba_axil_mem_rd_en = 1'b1;
+    //             pba_rd_data_valid_next = 1'b1;
+    //         end
+    //     end
+    // end
+
+    // always @(posedge clk) begin
+    //     tbl_rd_data_valid_reg <= tbl_rd_data_valid_next;
+    //     pba_rd_data_valid_reg <= pba_rd_data_valid_next;
+    //     rd_data_shift_reg <= rd_data_shift_next;
+
+    //     last_read_reg <= last_read_next;
+
+    //     s_axil_awready_reg <= s_axil_awready_next;
+    //     s_axil_wready_reg <= s_axil_wready_next;
+    //     s_axil_bvalid_reg <= s_axil_bvalid_next;
+
+    //     s_axil_arready_reg <= s_axil_arready_next;
+    //     s_axil_rdata_reg <= s_axil_rdata_next;
+    //     s_axil_rvalid_reg <= s_axil_rvalid_next;
+
+    //     if (tbl_axil_mem_rd_en) begin
+    //         tbl_axil_mem_rd_data_reg <= tbl_mem[s_axil_araddr_index];
+    //     end else begin
+    //         for (i = 0; i < 8; i = i + 1) begin
+    //             if (tbl_axil_mem_wr_en && tbl_axil_mem_wr_be[i]) begin
+    //                 tbl_mem[s_axil_awaddr_index][8*i +: 8] <= tbl_axil_mem_wr_data[8*i +: 8];
+    //             end
+    //         end
+    //     end
+
+    //     if (pba_axil_mem_rd_en) begin
+    //         pba_axil_mem_rd_data_reg <= pba_mem[s_axil_araddr_index];
+    //     end
+
+    //     if (rst) begin
+    //         tbl_rd_data_valid_reg <= 1'b0;
+    //         pba_rd_data_valid_reg <= 1'b0;
+    //         last_read_reg <= 1'b0;
+
+    //         s_axil_awready_reg <= 1'b0;
+    //         s_axil_wready_reg <= 1'b0;
+    //         s_axil_bvalid_reg <= 1'b0;
+
+    //         s_axil_arready_reg <= 1'b0;
+    //         s_axil_rvalid_reg <= 1'b0;
+    //     end
+    // end
+
+    // endmodule
+
+    // `resetall
+
+    // /**//*
+
+    // Copyright (c) 2022 Alex Forencich
+
+    // Permission is hereby granted, free of charge, to any person obtaining a copy
+    // of this software and associated documentation files (the "Software"), to deal
+    // in the Software without restriction, including without limitation the rights
+    // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+    // copies of the Software, and to permit persons to whom the Software is
+    // furnished to do so, subject to the following conditions:
+
+    // The above copyright notice and this permission notice shall be included in
+    // all copies or substantial portions of the Software.
+
+    // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+    // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY
+    // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+    // AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+    // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+    // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+    // THE SOFTWARE.
+
+    // *//*
+
+    // // Language: Verilog 2001
+
+    // `resetall
+    // `timescale 1ns / 1ps
+    // `default_nettype none
+
+    // *//*
+    //  * PCIe MSI-X module
+    //  *//*
+    // module pcie_msix #
+    // (
+    //     // Interrupt configuration
+    //     parameter IRQ_INDEX_WIDTH = 11,
+
+    //     // AXI-lite interface configuration
+    //     parameter AXIL_DATA_WIDTH = 32,
+    //     parameter AXIL_ADDR_WIDTH = IRQ_INDEX_WIDTH+5,
+    //     parameter AXIL_STRB_WIDTH = (AXIL_DATA_WIDTH/8),
+
+    //     // TLP interface configuration
+    //     parameter TLP_HDR_WIDTH = 128,
+    //     parameter TLP_FORCE_64_BIT_ADDR = 0,
+    // 	parameter FUNCTION_ID_WIDTH = 8, // Scott
+    // 	parameter F_COUNT = 252+1
+    // )
+    // (
+    //     input  wire                        clk,
+    //     input  wire                        rst,
+
+    //     *//*
+    //      * AXI lite interface for MSI-X tables
+    //      *//*
+    //     input  wire [AXIL_ADDR_WIDTH-1:0]  s_axil_awaddr,
+    // 	input  wire [FUNCTION_ID_WIDTH-1:0] s_axil_awuser, // Scott
+    //     input  wire [2:0]                  s_axil_awprot,
+    //     input  wire                        s_axil_awvalid,
+    //     output wire                        s_axil_awready,
+    //     input  wire [AXIL_DATA_WIDTH-1:0]  s_axil_wdata,
+    //     input  wire [AXIL_STRB_WIDTH-1:0]  s_axil_wstrb,
+    //     input  wire                        s_axil_wvalid,
+    //     output wire                        s_axil_wready,
+    //     output wire [1:0]                  s_axil_bresp,
+    //     output wire                        s_axil_bvalid,
+    //     input  wire                        s_axil_bready,
+    //     input  wire [AXIL_ADDR_WIDTH-1:0]  s_axil_araddr,
+    // 	input  wire [FUNCTION_ID_WIDTH-1:0] s_axil_aruser, // Scott
+    //     input  wire [2:0]                  s_axil_arprot,
+    //     input  wire                        s_axil_arvalid,
+    //     output wire                        s_axil_arready,
+    //     output wire [AXIL_DATA_WIDTH-1:0]  s_axil_rdata,
+    //     output wire [1:0]                  s_axil_rresp,
+    //     output wire                        s_axil_rvalid,
+    //     input  wire                        s_axil_rready,
+
+    //     *//*
+    //      * Interrupt request input
+    //      *//*
+    //     input  wire [IRQ_INDEX_WIDTH-1:0]   irq_index,
+    //     input  wire [FUNCTION_ID_WIDTH-1:0] irq_function_id, // Scott
+    //     input  wire                         irq_valid,
+    //     output wire                         irq_ready,
+
+    //     *//*
+    //      * Memory write TLP output
+    //      *//*
+    //     output wire [31:0]                 tx_wr_req_tlp_data,
+    //     output wire                        tx_wr_req_tlp_strb,
+    //     output wire [TLP_HDR_WIDTH-1:0]    tx_wr_req_tlp_hdr,
+    //     output wire                        tx_wr_req_tlp_valid,
+    //     output wire                        tx_wr_req_tlp_sop,
+    //     output wire                        tx_wr_req_tlp_eop,
+    //     input  wire                        tx_wr_req_tlp_ready,
+
+    //     *//*
+    //      * Configuration
+    //      *//*
+    //     input  wire [15:0]                 requester_id,
+    //     input  wire                        msix_enable,
+    //     input  wire                        msix_mask
+    // );
+
+    // parameter F_COUNT_WIDTH = $clog2(F_COUNT);
+
+    // // 2 IRQs + 8 bits Func + 1?
+    // // 4 IRQs + 8 bits Func + 1 
+    // parameter TBL_ADDR_WIDTH = IRQ_INDEX_WIDTH+F_COUNT_WIDTH+1; 
+
+    // // 2** (1 + 8 + 1) = 2**10 = 1024 entries
+    // // 2** (2 + 8 + 1) = 2**11 = 2048 entries
+    // parameter NUM_TABLE_ENTRIES = 2**TBL_ADDR_WIDTH; // Scott
+    // parameter NUM_FUNCS = 2**(F_COUNT_WIDTH);
+    // parameter NUM_ENTRIES_PER_FUNC = NUM_TABLE_ENTRIES / NUM_FUNCS;
+    // parameter CLOG_NUM_ENTRIES_PER_FUNC = $clog2(NUM_ENTRIES_PER_FUNC);
+
+    // parameter PBA_ADDR_WIDTH = (F_COUNT_WIDTH + IRQ_INDEX_WIDTH) > 6 ? (F_COUNT_WIDTH + IRQ_INDEX_WIDTH)-6 : 0;
+    // parameter PBA_ADDR_WIDTH_INT = PBA_ADDR_WIDTH > 0 ? PBA_ADDR_WIDTH : 1;
+
+    // parameter INDEX_SHIFT = $clog2(64/8);
+    // parameter WORD_SELECT_SHIFT = $clog2(AXIL_DATA_WIDTH/8);
+    // parameter WORD_SELECT_WIDTH = 64 > AXIL_DATA_WIDTH ? $clog2((64+7)/8) - $clog2(AXIL_DATA_WIDTH/8) : 0;
+
+    // // bus width assertions
+    // initial begin
+    //     if (AXIL_STRB_WIDTH * 8 != AXIL_DATA_WIDTH) begin
+    //         $error("Error: AXI lite interface requires byte (8-bit) granularity (instance %m)");
+    //         $finish;
+    //     end
+
+    //     if (AXIL_DATA_WIDTH > 64) begin
+    //         $error("Error: AXI lite data width must be 64 or less (instance %m)");
+    //         $finish;
+    //     end
+
+    //     if (AXIL_ADDR_WIDTH < (F_COUNT_WIDTH + IRQ_INDEX_WIDTH)+5) begin
+    //         $error("Error: AXI lite address width %d too narrow (instance %m)", AXIL_ADDR_WIDTH);
+    //         $finish;
+    //     end
+
+    //     if ((F_COUNT_WIDTH + IRQ_INDEX_WIDTH) > 11) begin
+    //         $error("Error: IRQ index width must be 11 or less (instance %m)");
+    //         $finish;
+    //     end
+    // end
+
+    // localparam [2:0]
+    //     TLP_FMT_3DW = 3'b000,
+    //     TLP_FMT_4DW = 3'b001,
+    //     TLP_FMT_3DW_DATA = 3'b010,
+    //     TLP_FMT_4DW_DATA = 3'b011,
+    //     TLP_FMT_PREFIX = 3'b100;
+
+    // localparam [1:0]
+    //     STATE_IDLE = 2'd0,
+    //     STATE_READ_TBL_1 = 2'd1,
+    //     STATE_READ_TBL_2 = 2'd2,
+    //     STATE_SEND_TLP = 2'd3;
+
+    // reg [1:0] state_reg = STATE_IDLE, state_next;
+
+    // reg [F_COUNT_WIDTH + IRQ_INDEX_WIDTH-1:0] irq_index_reg = 0, irq_index_next;
+    // reg [FUNCTION_ID_WIDTH-1:0] irq_function_id_reg, irq_function_id_next; // Scott
+
+    // reg [63:0] vec_addr_reg = 0, vec_addr_next;
+    // reg [31:0] vec_data_reg = 0, vec_data_next;
+    // reg vec_mask_reg = 1'b0, vec_mask_next;
+
+    // reg last_read_reg = 1'b0, last_read_next;
+
+    // reg [127:0] tlp_hdr;
+
+    // reg read_eligible;
+    // reg write_eligible;
+
+    // reg tbl_axil_mem_rd_en;
+    // reg tbl_axil_mem_wr_en;
+    // reg [7:0] tbl_axil_mem_wr_be;
+    // reg [63:0] tbl_axil_mem_wr_data;
+    // reg pba_axil_mem_rd_en;
+
+    // reg tbl_mem_rd_en;
+    // reg [TBL_ADDR_WIDTH-1:0] tbl_mem_addr;
+    // reg pba_mem_rd_en;
+    // reg pba_mem_wr_en;
+    // reg [PBA_ADDR_WIDTH-1:0] pba_mem_addr;
+    // reg [63:0] pba_mem_wr_data;
+
+    // reg s_axil_awready_reg = 1'b0, s_axil_awready_next;
+    // reg s_axil_wready_reg = 1'b0, s_axil_wready_next;
+    // reg s_axil_bvalid_reg = 1'b0, s_axil_bvalid_next;
+    // reg s_axil_arready_reg = 1'b0, s_axil_arready_next;
+    // reg [AXIL_DATA_WIDTH-1:0] s_axil_rdata_reg = {AXIL_DATA_WIDTH{1'b0}}, s_axil_rdata_next;
+    // reg s_axil_rvalid_reg = 1'b0, s_axil_rvalid_next;
+
+    // reg irq_ready_reg = 1'b0, irq_ready_next;
+
+    // reg [31:0] tx_wr_req_tlp_data_reg = 0, tx_wr_req_tlp_data_next;
+    // reg [TLP_HDR_WIDTH-1:0] tx_wr_req_tlp_hdr_reg = 0, tx_wr_req_tlp_hdr_next;
+    // reg tx_wr_req_tlp_valid_reg = 0, tx_wr_req_tlp_valid_next;
+
+    // reg msix_enable_reg = 1'b0;
+    // reg msix_mask_reg = 1'b0;
+
+    // // MSI-X table
+    // (* ramstyle = "no_rw_check, mlab" *)
+    // reg [63:0] tbl_mem[(2**TBL_ADDR_WIDTH)-1:0];
+
+    // // MSI-X PBA
+    // (* ram_style = "distributed", ramstyle = "no_rw_check, mlab" *)
+    // reg [63:0] pba_mem[(2**PBA_ADDR_WIDTH)-1:0];
+
+    // reg tbl_rd_data_valid_reg = 1'b0, tbl_rd_data_valid_next;
+    // reg pba_rd_data_valid_reg = 1'b0, pba_rd_data_valid_next;
+    // reg [WORD_SELECT_WIDTH-1:0] rd_data_shift_reg = 0, rd_data_shift_next;
+
+    // reg [63:0] tbl_mem_rd_data_reg = 0;
+    // reg [63:0] pba_mem_rd_data_reg = 0;
+    // reg [63:0] tbl_axil_mem_rd_data_reg = 0;
+    // reg [63:0] pba_axil_mem_rd_data_reg = 0;
+
+
+    // wire [AXIL_ADDR_WIDTH-1:0] axil_msix_awaddr_translated;
+    // wire [AXIL_ADDR_WIDTH-1:0] axil_msix_araddr_translated;
+    // wire [FUNCTION_ID_WIDTH-1:0] axil_msix_read_function_id; 
+    // wire [FUNCTION_ID_WIDTH-1:0] axil_msix_write_function_id;
+
+    // // Scott
+    // resource_translator #(
+    //     .TOTAL_RESOURCES(2**($clog2(F_COUNT) + IRQ_INDEX_WIDTH + 1)),
+    //     .FUNCTION_ID_WIDTH(FUNCTION_ID_WIDTH),
+    //     .F_COUNT(F_COUNT),
+    //     .RESOURCE_BIT_WIDTH(32'd3), // 4-bits per cpl queue
+    //     .AXIL_ADDR_WIDTH(AXIL_ADDR_WIDTH)
+    // )
+    // pcie_msix_resource_translator (
+
+    //     .input_write_address(s_axil_awaddr),
+    //     .input_write_function_id(s_axil_awuser),
+
+    //     .input_read_address(s_axil_araddr),
+    //     .input_read_function_id(s_axil_aruser),
+
+    //     .output_read_address(axil_msix_araddr_translated),
+    //     .output_write_address(axil_msix_awaddr_translated),
+    //     .output_read_function_id(axil_msix_read_function_id),
+    //     .output_write_function_id(axil_msix_write_function_id)
+
+    // );
+
+    // // wire [TBL_ADDR_WIDTH-1:0] s_axil_awaddr_index_temp = s_axil_awaddr >> INDEX_SHIFT; // Scott
+    // // wire [TBL_ADDR_WIDTH-1:0] s_axil_awaddr_index; // Scott
+    // // assign s_axil_awaddr_index[CLOG_NUM_ENTRIES_PER_FUNC-1:0] = s_axil_awaddr_index_temp; // Scott
+    // // assign s_axil_awaddr_index[TBL_ADDR_WIDTH-1:CLOG_NUM_ENTRIES_PER_FUNC] = s_axil_awuser; // Scott
+
+    // wire [TBL_ADDR_WIDTH-1:0] s_axil_awaddr_index = axil_msix_awaddr_translated >> INDEX_SHIFT; // Scott
+    // wire [WORD_SELECT_WIDTH-1:0] s_axil_awaddr_word = AXIL_DATA_WIDTH < 64 ? axil_msix_awaddr_translated >> WORD_SELECT_SHIFT : 0; // Scott
+    // *//*
+    // wire [TBL_ADDR_WIDTH-1:0] s_axil_awaddr_index = s_axil_awaddr >> INDEX_SHIFT; // Scott
+    // wire [WORD_SELECT_WIDTH-1:0] s_axil_awaddr_word = AXIL_DATA_WIDTH < 64 ? s_axil_awaddr >> WORD_SELECT_SHIFT : 0; // Scott*//*
+
+
+
+    // // wire [TBL_ADDR_WIDTH-1:0] s_axil_araddr_index_temp = s_axil_araddr >> INDEX_SHIFT; // Scott
+    // // wire [TBL_ADDR_WIDTH-1:0] s_axil_araddr_index;  // Scott
+    // // assign s_axil_araddr_index[CLOG_NUM_ENTRIES_PER_FUNC-1:0] = s_axil_araddr_index_temp; // Scott
+    // // assign s_axil_araddr_index[TBL_ADDR_WIDTH-1:CLOG_NUM_ENTRIES_PER_FUNC] = s_axil_aruser; // Scott
+
+
+    // *//*
+    // wire [TBL_ADDR_WIDTH-1:0] s_axil_araddr_index = s_axil_araddr >> INDEX_SHIFT;  // Scott
+    // wire [WORD_SELECT_WIDTH-1:0] s_axil_araddr_word = AXIL_DATA_WIDTH < 64 ? s_axil_araddr >> WORD_SELECT_SHIFT : 0; // Scott
+    // *//*
+    // wire [TBL_ADDR_WIDTH-1:0] s_axil_araddr_index = axil_msix_araddr_translated >> INDEX_SHIFT;  // Scott
+    // wire [WORD_SELECT_WIDTH-1:0] s_axil_araddr_word = AXIL_DATA_WIDTH < 64 ? axil_msix_araddr_translated >> WORD_SELECT_SHIFT : 0; // Scott
+
+
+
+
+
+    // assign s_axil_awready = s_axil_awready_reg;
+    // assign s_axil_wready = s_axil_wready_reg;
+    // assign s_axil_bresp = 2'b00;
+    // assign s_axil_bvalid = s_axil_bvalid_reg;
+    // assign s_axil_arready = s_axil_arready_reg;
+    // assign s_axil_rdata = s_axil_rdata_reg;
+    // assign s_axil_rresp = 2'b00;
+    // assign s_axil_rvalid = s_axil_rvalid_reg;
+
+    // assign irq_ready = irq_ready_reg;
+
+    // assign tx_wr_req_tlp_data = tx_wr_req_tlp_data_reg;
+    // assign tx_wr_req_tlp_strb = 1;
+    // assign tx_wr_req_tlp_hdr = tx_wr_req_tlp_hdr_reg;
+    // assign tx_wr_req_tlp_valid = tx_wr_req_tlp_valid_reg;
+    // assign tx_wr_req_tlp_sop = 1'b1;
+    // assign tx_wr_req_tlp_eop = 1'b1;
+
+    // integer i;
+
+    // initial begin
+    //     for (i = 0; i < 2**TBL_ADDR_WIDTH; i = i + 1) begin
+    //         tbl_mem[i] = 0;
+    //     end
+    //     for (i = 0; i < 2**PBA_ADDR_WIDTH; i = i + 1) begin
+    //         pba_mem[i] = 0;
+    //     end
+    // end
+
+    // reg [7:0] func_id;
+
+    // always @* begin
+    //     state_next = STATE_IDLE;
+
+    //     tbl_mem_rd_en = 1'b0;
+    //     tbl_mem_addr = {irq_index_reg, 1'b0};
+
+    //     pba_mem_rd_en = 1'b0;
+    //     pba_mem_wr_en = 1'b0;
+    //     pba_mem_addr = irq_index_reg >> 5;
+    //     pba_mem_wr_data = 0;
+
+    //     irq_index_next = irq_index_reg;
+    //     irq_function_id_next = irq_function_id_reg; // Scott
+
+    //     vec_addr_next = vec_addr_reg;
+    //     vec_data_next = vec_data_reg;
+    //     vec_mask_next = vec_mask_reg;
+
+    //     irq_ready_next = 1'b0;
+
+    //     tx_wr_req_tlp_data_next = tx_wr_req_tlp_data_reg;
+    //     tx_wr_req_tlp_hdr_next = tx_wr_req_tlp_hdr_reg;
+    //     tx_wr_req_tlp_valid_next = tx_wr_req_tlp_valid_reg && !tx_wr_req_tlp_ready;
+
+    //     // TLP header
+    //     // DW 0
+    //     if (((vec_addr_reg[63:2] >> 30) != 0) || TLP_FORCE_64_BIT_ADDR) begin
+    //         tlp_hdr[127:125] = TLP_FMT_4DW_DATA; // fmt - 4DW with data
+    //     end else begin
+    //         tlp_hdr[127:125] = TLP_FMT_3DW_DATA; // fmt - 3DW with data
+    //     end
+    //     tlp_hdr[124:120] = 5'b00000; // type - write
+    //     tlp_hdr[119] = 1'b0; // T9
+    //     tlp_hdr[118:116] = 3'b000; // TC
+    //     tlp_hdr[115] = 1'b0; // T8
+    //     tlp_hdr[114] = 1'b0; // attr
+    //     tlp_hdr[113] = 1'b0; // LN
+    //     tlp_hdr[112] = 1'b0; // TH
+    //     tlp_hdr[111] = 1'b0; // TD
+    //     tlp_hdr[110] = 1'b0; // EP
+    //     tlp_hdr[109:108] = 2'b00; // attr
+    //     tlp_hdr[107:106] = 3'b000; // AT
+    //     tlp_hdr[105:96] = 10'd1; // length
+    //     // DW 
+    // 	//$display("Scott irq_index_reg = %h", irq_index_reg);
+    // 	func_id[7:0] = irq_index_reg >> (CLOG_NUM_ENTRIES_PER_FUNC-1);
+    // 	//$display("Scott func_id[7:0] = %h", func_id[7:0]);
+    //     tlp_hdr[95:80] = {8'b0, func_id}; // requester ID
+    // 	//$display("Scott tlp_hdr = %b ", tlp_hdr[95:80]);
+    //     tlp_hdr[79:72] = 8'd0; // tag
+    //     tlp_hdr[71:68] = 4'b0000; // last BE
+    //     tlp_hdr[67:64] = 4'b1111; // first BE
+    //     if (((vec_addr_reg[63:2] >> 30) != 0) || TLP_FORCE_64_BIT_ADDR) begin
+    //         // DW 2+3
+    //         tlp_hdr[63:2] = vec_addr_reg[63:2]; // address
+    //         tlp_hdr[1:0] = 2'b00; // PH
+    //     end else begin
+    //         // DW 2
+    //         tlp_hdr[63:34] = vec_addr_reg[63:2]; // address
+    //         tlp_hdr[33:32] = 2'b00; // PH
+    //         // DW 3
+    //         tlp_hdr[31:0] = 32'd0;
+    //     end
+
+    //     case (state_reg)
+    //         STATE_IDLE: begin
+    //             irq_ready_next = 1'b1;
+
+    //             if (irq_valid && irq_ready) begin
+    //                 // new request
+    //                 irq_ready_next = 1'b0;
+    // 	            $display("Scott irq_function_id = %h ", irq_function_id);
+    // 	            $display("Scott irq_index = %h ", irq_index);
+    //                 irq_index_next = {irq_function_id[F_COUNT-1:0], irq_index};
+    // 	            $display("Scott irq_index_next = %h ", irq_index_next);
+    //                 irq_function_id_next = irq_function_id;
+
+    //                 tbl_mem_rd_en = 1'b1;
+    //                 tbl_mem_addr = {irq_index_next, 1'b0};
+
+    //                 pba_mem_rd_en = 1'b1;
+    //                 pba_mem_addr = irq_index_next >> 6;
+
+    //                 state_next = STATE_READ_TBL_1;
+    //             end else if (!irq_valid && msix_enable_reg && !msix_mask_reg) begin
+    //                 // no new request waiting, scan PBA for masked requests
+
+    //                 if (pba_mem_rd_data_reg[irq_index_reg & 6'h3f]) begin
+    //                     // PBA bit for current index is set, try issuing it
+    //                     irq_ready_next = 1'b0;
+
+    //                     tbl_mem_rd_en = 1'b1;
+    //                     tbl_mem_addr = {irq_index_next, 1'b0};
+
+    //                     pba_mem_rd_en = 1'b1;
+    //                     pba_mem_addr = irq_index_next >> 6;
+
+    //                     state_next = STATE_READ_TBL_1;
+    //                 end else begin
+    //                     // PBA bit for current index is not set
+    //                     if (pba_mem_rd_data_reg) begin
+    //                         // at least one bit set in current group, move to next index
+    //                         irq_index_next = irq_index_reg + 1;
+    //                     end else begin
+    //                         // no bits set in current group, move to next group
+    //                         irq_index_next = (irq_index_reg & ({IRQ_INDEX_WIDTH{1'b1}} << 6)) + 7'd64;
+    //                     end
+
+    //                     pba_mem_rd_en = 1'b1;
+    //                     pba_mem_addr = irq_index_next >> 6;
+
+    //                     state_next = STATE_IDLE;
+    //                 end
+    //             end else begin
+    //                 state_next = STATE_IDLE;
+    //             end
+    //         end
+    //         STATE_READ_TBL_1: begin
+    //             // handle first table read
+    //             tbl_mem_rd_en = 1'b1;
+    //             tbl_mem_addr = {irq_index_reg, 1'b1};
+
+    //             vec_addr_next = {tbl_mem_rd_data_reg[63:2], 2'b00};
+
+    //             state_next = STATE_READ_TBL_2;
+    //         end
+    //         STATE_READ_TBL_2: begin
+    //             // handle second table read
+    //             vec_data_next = tbl_mem_rd_data_reg[31:0];
+    //             vec_mask_next = tbl_mem_rd_data_reg[32];
+
+    //             if (msix_enable_reg && !msix_mask_reg && !vec_mask_next) begin
+    //                 // send TLP
+    //                 state_next = STATE_SEND_TLP;
+    //             end else begin
+    //                 // set PBA bit
+    //                 pba_mem_wr_en = 1'b1;
+    //                 pba_mem_wr_data = pba_mem_rd_data_reg | (1 << (irq_index_reg & 6'h3F));
+    //                 irq_ready_next = 1'b1;
+    //                 state_next = STATE_IDLE;
+    //             end
+    //         end
+    //         STATE_SEND_TLP: begin
+    // 			// $display("Scott func_id = %b ", func_id[7:0]);
+    //             if (!tx_wr_req_tlp_valid || tx_wr_req_tlp_ready) begin
+    //                 // send TLP
+    //                 tx_wr_req_tlp_data_next = vec_data_reg;
+    //                 tx_wr_req_tlp_hdr_next = tlp_hdr;
+
+    //                 tx_wr_req_tlp_valid_next = 1'b1;
+    // 				// $display("Scott tlp_valid_next = %b ",  tx_wr_req_tlp_valid_next);
+    // 				// $display("Scott func_id = %b ", func_id[7:0]);
+
+    //                 // clear PBA bit
+    //                 pba_mem_wr_en = 1'b1;
+    //                 pba_mem_wr_data = pba_mem_rd_data_reg & ~(1 << (irq_index_reg & 6'h3F));
+
+    //                 // increment index so we don't check the same PBA bit immediately
+    //                 irq_index_next = irq_index_reg + 1;
+
+    //                 irq_ready_next = 1'b1;
+    //                 state_next = STATE_IDLE;
+    //             end else begin
+    //                 state_next = STATE_SEND_TLP;
+    //             end
+    //         end
+    //     endcase
+    // end
+
+    // always @(posedge clk) begin
+    //     state_reg <= state_next;
+
+    //     vec_addr_reg <= vec_addr_next;
+    //     vec_data_reg <= vec_data_next;
+    //     vec_mask_reg <= vec_mask_next;
+
+    //     irq_ready_reg <= irq_ready_next;
+
+    //     tx_wr_req_tlp_data_reg <= tx_wr_req_tlp_data_next;
+    //     tx_wr_req_tlp_hdr_reg <= tx_wr_req_tlp_hdr_next;
+    //     tx_wr_req_tlp_valid_reg <= tx_wr_req_tlp_valid_next;
+
+    //     msix_enable_reg <= msix_enable;
+    //     msix_mask_reg <= msix_mask;
+
+    //     if (tbl_mem_rd_en) begin
+    //         tbl_mem_rd_data_reg <= tbl_mem[tbl_mem_addr];
+    //     end
+
+    //     if (pba_mem_wr_en) begin
+    //         pba_mem[pba_mem_addr] <= pba_mem_wr_data;
+    //     end else if (pba_mem_rd_en) begin
+    //         pba_mem_rd_data_reg <= pba_mem[pba_mem_addr];
+    //     end
+
+    //     if (rst) begin
+    //         state_reg <= STATE_IDLE;
+
+    //         irq_ready_reg <= 1'b0;
+    // 		irq_index_reg <= 0;
+
+    //         tx_wr_req_tlp_valid_reg <= 1'b0;
+    // 	end else begin
+    // 	    irq_index_reg <= irq_index_next;
+    //         irq_function_id_reg <= irq_function_id_next; // Scott
+    // 	end
+    // end
+
+    // // AXI lite interface
+    // always @* begin
+    //     tbl_axil_mem_rd_en = 1'b0;
+    //     tbl_axil_mem_wr_en = 1'b0;
+    //     tbl_axil_mem_wr_be = s_axil_wstrb << (s_axil_awaddr_word * AXIL_STRB_WIDTH);
+    //     tbl_axil_mem_wr_data = {2**WORD_SELECT_WIDTH{s_axil_wdata}};
+    //     pba_axil_mem_rd_en = 1'b0;
+
+    //     tbl_rd_data_valid_next = tbl_rd_data_valid_reg;
+    //     pba_rd_data_valid_next = pba_rd_data_valid_reg;
+    //     rd_data_shift_next = rd_data_shift_reg;
+
+    //     last_read_next = last_read_reg;
+
+    //     s_axil_awready_next = 1'b0;
+    //     s_axil_wready_next = 1'b0;
+    //     s_axil_bvalid_next = s_axil_bvalid_reg && !s_axil_bready;
+
+    //     s_axil_arready_next = 1'b0;
+    //     s_axil_rdata_next = s_axil_rdata_reg;
+    //     s_axil_rvalid_next = s_axil_rvalid_reg && !s_axil_rready;
+
+    //     write_eligible = s_axil_awvalid && s_axil_wvalid && (!s_axil_bvalid || s_axil_bready) && (!s_axil_awready && !s_axil_wready);
+    //     read_eligible = s_axil_arvalid && (!s_axil_rvalid || s_axil_rready || !(tbl_rd_data_valid_reg || pba_rd_data_valid_reg)) && (!s_axil_arready);
+
+    //     if ((tbl_rd_data_valid_reg || pba_rd_data_valid_reg) && (!s_axil_rvalid || s_axil_rready)) begin
+    //         s_axil_rvalid_next = 1'b1;
+    //         tbl_rd_data_valid_next = 1'b0;
+    //         pba_rd_data_valid_next = 1'b0;
+
+    //         if (tbl_rd_data_valid_reg) begin
+    //             if (AXIL_DATA_WIDTH < 64) begin
+    //                 s_axil_rdata_next = tbl_axil_mem_rd_data_reg >> rd_data_shift_reg*AXIL_DATA_WIDTH;
+    //             end else begin
+    //                 s_axil_rdata_next = tbl_axil_mem_rd_data_reg;
+    //             end
+    //         end else begin
+    //             if (AXIL_DATA_WIDTH < 64) begin
+    //                 s_axil_rdata_next = pba_axil_mem_rd_data_reg >> rd_data_shift_reg*AXIL_DATA_WIDTH;
+    //             end else begin
+    //                 s_axil_rdata_next = pba_axil_mem_rd_data_reg;
+    //             end
+    //         end
+    //     end
+
+    //     if (write_eligible && (!read_eligible || last_read_reg)) begin
+    //         last_read_next = 1'b0;
+
+    //         s_axil_awready_next = 1'b1;
+    //         s_axil_wready_next = 1'b1;
+    //         s_axil_bvalid_next = 1'b1;
+
+    //         if (axil_msix_awaddr_translated[AXIL_ADDR_WIDTH-1] == 0) begin
+    //             tbl_axil_mem_wr_en = 1'b1;
+    //         end
+    //     end else if (read_eligible) begin
+    //         last_read_next = 1'b1;
+
+    //         s_axil_arready_next = 1'b1;
+
+    //         rd_data_shift_next = s_axil_araddr_word;
+
+    //         if (axil_msix_araddr_translated[AXIL_ADDR_WIDTH-1] == 0) begin
+    //             tbl_axil_mem_rd_en = 1'b1;
+    //             tbl_rd_data_valid_next = 1'b1;
+    //         end else begin
+    //             pba_axil_mem_rd_en = 1'b1;
+    //             pba_rd_data_valid_next = 1'b1;
+    //         end
+    //     end
+    // end
+
+    // always @(posedge clk) begin
+    //     tbl_rd_data_valid_reg <= tbl_rd_data_valid_next;
+    //     pba_rd_data_valid_reg <= pba_rd_data_valid_next;
+    //     rd_data_shift_reg <= rd_data_shift_next;
+
+    //     last_read_reg <= last_read_next;
+
+    //     s_axil_awready_reg <= s_axil_awready_next;
+    //     s_axil_wready_reg <= s_axil_wready_next;
+    //     s_axil_bvalid_reg <= s_axil_bvalid_next;
+
+    //     s_axil_arready_reg <= s_axil_arready_next;
+    //     s_axil_rdata_reg <= s_axil_rdata_next;
+    //     s_axil_rvalid_reg <= s_axil_rvalid_next;
+
+    //     if (tbl_axil_mem_rd_en) begin
+    //         tbl_axil_mem_rd_data_reg <= tbl_mem[s_axil_araddr_index];
+    //     end else begin
+    //         for (i = 0; i < 8; i = i + 1) begin
+    //             if (tbl_axil_mem_wr_en && tbl_axil_mem_wr_be[i]) begin
+    //                 tbl_mem[s_axil_awaddr_index][8*i +: 8] <= tbl_axil_mem_wr_data[8*i +: 8];
+    //             end
+    //         end
+    //     end
+
+    //     if (pba_axil_mem_rd_en) begin
+    //         pba_axil_mem_rd_data_reg <= pba_mem[s_axil_araddr_index];
+    //     end
+
+    //     if (rst) begin
+    //         tbl_rd_data_valid_reg <= 1'b0;
+    //         pba_rd_data_valid_reg <= 1'b0;
+    //         last_read_reg <= 1'b0;
+
+    //         s_axil_awready_reg <= 1'b0;
+    //         s_axil_wready_reg <= 1'b0;
+    //         s_axil_bvalid_reg <= 1'b0;
+
+    //         s_axil_arready_reg <= 1'b0;
+    //         s_axil_rvalid_reg <= 1'b0;
+    //     end
+    // end
+
+    // endmodule
+
+    // `resetall
+    // */
 /*
 
 Copyright (c) 2022 Alex Forencich
@@ -23,24 +1258,6 @@ THE SOFTWARE.
 */
 
 // Language: Verilog 2001
-//
-// SR-IOV modifications relative to upstream pcie_msix:
-//
-//   - Adds FUNCTION_ID_WIDTH and F_COUNT parameters, plus per-function
-//     awuser/aruser/irq_function_id ports, so the MSI-X table is shared
-//     across PF + VFs.
-//   - Combined index space is { function_id, irq_index_within_function }.
-//     The full FUNCTION_ID_WIDTH is preserved for the TLP requester ID;
-//     only the low F_COUNT_WIDTH bits of function_id index tbl_mem.
-//   - PBA address shift uses log2(64) = 6 (rows are 64 bits wide).
-//   - PBA bit-set/clear literals are 64'h1 to keep shifts well-defined
-//     for bit positions >= 32.
-//   - PBA group-skip mask preserves the function_id portion of the
-//     combined index when advancing to the next 64-vector group.
-//   - TLP requester ID function field is taken from the latched
-//     irq_function_id_reg; the bus number comes from the high byte of
-//     the requester_id input. AXI-Lite address translation is expected
-//     to happen upstream (in the parent's resource_translator).
 
 `resetall
 `timescale 1ns / 1ps
@@ -62,10 +1279,8 @@ module pcie_msix #
     // TLP interface configuration
     parameter TLP_HDR_WIDTH = 128,
     parameter TLP_FORCE_64_BIT_ADDR = 0,
-    // SR-IOV: full PCIe function-id width (8 bits, non-ARI: dev[4:0]+func[2:0]).
-    parameter FUNCTION_ID_WIDTH = 8,
-    // SR-IOV: total functions sharing this MSI-X block (PF + VFs).
-    parameter F_COUNT = 252+1
+	parameter FUNCTION_ID_WIDTH = 8, // Scott
+	parameter F_COUNT = 252+1
 )
 (
     input  wire                        clk,
@@ -75,8 +1290,7 @@ module pcie_msix #
      * AXI lite interface for MSI-X tables
      */
     input  wire [AXIL_ADDR_WIDTH-1:0]  s_axil_awaddr,
-    // SR-IOV: function id of the AXI-Lite write originator.
-    input  wire [FUNCTION_ID_WIDTH-1:0] s_axil_awuser,
+	input  wire [FUNCTION_ID_WIDTH-1:0] s_axil_awuser, // Scott
     input  wire [2:0]                  s_axil_awprot,
     input  wire                        s_axil_awvalid,
     output wire                        s_axil_awready,
@@ -88,8 +1302,7 @@ module pcie_msix #
     output wire                        s_axil_bvalid,
     input  wire                        s_axil_bready,
     input  wire [AXIL_ADDR_WIDTH-1:0]  s_axil_araddr,
-    // SR-IOV: function id of the AXI-Lite read originator.
-    input  wire [FUNCTION_ID_WIDTH-1:0] s_axil_aruser,
+	input  wire [FUNCTION_ID_WIDTH-1:0] s_axil_aruser, // Scott
     input  wire [2:0]                  s_axil_arprot,
     input  wire                        s_axil_arvalid,
     output wire                        s_axil_arready,
@@ -102,8 +1315,7 @@ module pcie_msix #
      * Interrupt request input
      */
     input  wire [IRQ_INDEX_WIDTH-1:0]   irq_index,
-    // SR-IOV: function id of the function asserting this interrupt.
-    input  wire [FUNCTION_ID_WIDTH-1:0] irq_function_id,
+    input  wire [FUNCTION_ID_WIDTH-1:0] irq_function_id, // Scott
     input  wire                         irq_valid,
     output wire                         irq_ready,
 
@@ -121,8 +1333,6 @@ module pcie_msix #
     /*
      * Configuration
      */
-    // High byte (bus + dev) is consumed verbatim; the low byte is
-    // overwritten with the per-interrupt function id when forming the TLP.
     input  wire [15:0]                 requester_id,
     input  wire                        msix_enable,
     input  wire                        msix_mask
@@ -130,17 +1340,18 @@ module pcie_msix #
 
 parameter F_COUNT_WIDTH = $clog2(F_COUNT);
 
-// Combined-index space: { function_id, irq_index_within_function }.
-// Width is FUNCTION_ID_WIDTH + IRQ_INDEX_WIDTH so the full function_id
-// survives the concatenation. Only the low F_COUNT_WIDTH bits of the
-// function_id portion are used to index tbl_mem; the upper bits are
-// carried only for the TLP requester ID.
+// Combined addressing: { function_id , irq_index_within_function }
+// Kept as FUNCTION_ID_WIDTH + IRQ_INDEX_WIDTH so no truncation occurs in
+// the concatenation path. The table memory only needs F_COUNT_WIDTH bits
+// of function id (unused upper bits are not indexed into tbl_mem).
 parameter COMBINED_INDEX_WIDTH = FUNCTION_ID_WIDTH + IRQ_INDEX_WIDTH;
 
-// Table address layout: [F_COUNT_WIDTH bits func][IRQ_INDEX_WIDTH bits idx][1 bit half]
+// Table address: low bit selects addr/data half of the MSI-X entry, next
+// IRQ_INDEX_WIDTH bits are the per-function entry index, next F_COUNT_WIDTH
+// bits are the (truncated) function id used for table lookup.
 parameter TBL_ADDR_WIDTH = IRQ_INDEX_WIDTH+F_COUNT_WIDTH+1;
 
-parameter NUM_TABLE_ENTRIES = 2**TBL_ADDR_WIDTH;
+parameter NUM_TABLE_ENTRIES = 2**TBL_ADDR_WIDTH; // Scott
 parameter NUM_FUNCS = 2**(F_COUNT_WIDTH);
 parameter NUM_ENTRIES_PER_FUNC = NUM_TABLE_ENTRIES / NUM_FUNCS;
 parameter CLOG_NUM_ENTRIES_PER_FUNC = $clog2(NUM_ENTRIES_PER_FUNC);
@@ -164,8 +1375,6 @@ initial begin
         $finish;
     end
 
-    // Address-width check uses combined (func+idx) width, since translated
-    // addresses arriving here span the full combined namespace.
     if (AXIL_ADDR_WIDTH < (F_COUNT_WIDTH + IRQ_INDEX_WIDTH)+5) begin
         $error("Error: AXI lite address width %d too narrow (instance %m)", AXIL_ADDR_WIDTH);
         $finish;
@@ -192,13 +1401,12 @@ localparam [1:0]
 
 reg [1:0] state_reg = STATE_IDLE, state_next;
 
-// Holds { irq_function_id, irq_index } at full combined width. Wider than
-// the upstream IRQ_INDEX_WIDTH-only register because the function_id
-// portion needs to survive intact for use as the TLP requester ID.
+// FIX: width was [F_COUNT + IRQ_INDEX_WIDTH-1:0] which mistakenly used
+// F_COUNT (the count, 5) instead of F_COUNT_WIDTH (the bit count, 3).
+// Use the full combined width so {function_id, irq_index} fits without
+// truncation.
 reg [COMBINED_INDEX_WIDTH-1:0] irq_index_reg = 0, irq_index_next;
-// Latched function id of the in-flight interrupt. Consumed by the TLP
-// header builder to form the requester ID function field.
-reg [FUNCTION_ID_WIDTH-1:0] irq_function_id_reg, irq_function_id_next;
+reg [FUNCTION_ID_WIDTH-1:0] irq_function_id_reg, irq_function_id_next; // Scott
 
 reg [63:0] vec_addr_reg = 0, vec_addr_next;
 reg [31:0] vec_data_reg = 0, vec_data_next;
@@ -240,11 +1448,11 @@ reg tx_wr_req_tlp_valid_reg = 0, tx_wr_req_tlp_valid_next;
 reg msix_enable_reg = 1'b0;
 reg msix_mask_reg = 1'b0;
 
-// MSI-X table. Sized for NUM_FUNCS * NUM_ENTRIES_PER_FUNC * 2 64-bit halves.
+// MSI-X table
 (* ramstyle = "no_rw_check, mlab" *)
 reg [63:0] tbl_mem[(2**TBL_ADDR_WIDTH)-1:0];
 
-// MSI-X PBA. One bit per vector, packed 64 vectors per row.
+// MSI-X PBA
 (* ram_style = "distributed", ramstyle = "no_rw_check, mlab" *)
 reg [63:0] pba_mem[(2**PBA_ADDR_WIDTH)-1:0];
 
@@ -257,29 +1465,26 @@ reg [63:0] pba_mem_rd_data_reg = 0;
 reg [63:0] tbl_axil_mem_rd_data_reg = 0;
 reg [63:0] pba_axil_mem_rd_data_reg = 0;
 
-// AXI-Lite addresses arrive pre-translated by the parent's
-// resource_translator: function_id is already encoded in the upper bits.
-wire [TBL_ADDR_WIDTH-1:0] s_axil_awaddr_index = s_axil_awaddr >> INDEX_SHIFT;
-wire [WORD_SELECT_WIDTH-1:0] s_axil_awaddr_word = AXIL_DATA_WIDTH < 64 ? s_axil_awaddr >> WORD_SELECT_SHIFT : 0;
+wire [TBL_ADDR_WIDTH-1:0] s_axil_awaddr_index = s_axil_awaddr >> INDEX_SHIFT; // Scott
+wire [WORD_SELECT_WIDTH-1:0] s_axil_awaddr_word = AXIL_DATA_WIDTH < 64 ? s_axil_awaddr >> WORD_SELECT_SHIFT : 0; // Scott
 
-wire [TBL_ADDR_WIDTH-1:0] s_axil_araddr_index = s_axil_araddr >> INDEX_SHIFT;
-wire [WORD_SELECT_WIDTH-1:0] s_axil_araddr_word = AXIL_DATA_WIDTH < 64 ? s_axil_araddr >> WORD_SELECT_SHIFT : 0;
+wire [TBL_ADDR_WIDTH-1:0] s_axil_araddr_index = s_axil_araddr >> INDEX_SHIFT;  // Scott
+wire [WORD_SELECT_WIDTH-1:0] s_axil_araddr_word = AXIL_DATA_WIDTH < 64 ? s_axil_araddr >> WORD_SELECT_SHIFT : 0; // Scott
 
-// Per-function vector index portion of irq_index_reg. Matches the
-// upstream irq_index_reg semantics; used for PBA bit position and
-// for the within-function index portion of the table address.
+// Per-function portion of irq_index_reg used to address the MSI-X table
+// and PBA. The TBL_ADDR_WIDTH provides the low bit for addr/data select.
 wire [IRQ_INDEX_WIDTH-1:0] irq_index_within_func =
     irq_index_reg[IRQ_INDEX_WIDTH-1:0];
 
-// Function-id slice used to index tbl_mem and pba_mem. Truncated to
-// F_COUNT_WIDTH because that is what fits the table; the full
-// FUNCTION_ID_WIDTH copy lives in irq_function_id_reg.
+// Truncated function id used to index tbl_mem. Upper bits beyond
+// F_COUNT_WIDTH are not meaningful for table addressing; the full
+// function id is separately carried in irq_function_id_reg and is used
+// to construct the TLP requester ID.
 wire [F_COUNT_WIDTH-1:0] irq_func_for_tbl =
     irq_index_reg[IRQ_INDEX_WIDTH +: F_COUNT_WIDTH];
 
-// Combined memory index: { func_for_tbl, irq_index_within_func }.
-// Equivalent to the low (F_COUNT_WIDTH+IRQ_INDEX_WIDTH) bits of
-// irq_index_reg, but spelled out for clarity.
+// Pre-compute the combined table index: { func_for_tbl, irq_index_within_func }
+// This is the address within tbl_mem (minus the addr/data low bit).
 wire [F_COUNT_WIDTH+IRQ_INDEX_WIDTH-1:0] tbl_combined_index =
     {irq_func_for_tbl, irq_index_within_func};
 
@@ -318,19 +1523,21 @@ always @* begin
     state_next = STATE_IDLE;
 
     tbl_mem_rd_en = 1'b0;
-    // Default uses tbl_combined_index. Per-state overrides below
-    // address tbl_mem with the same composition spelled out.
+    // FIX: address the table using the combined {func_for_tbl, irq_index_within_func}
+    // instead of raw irq_index_reg, which (due to Bug A) could contain
+    // garbage zero bits in the upper positions.
     tbl_mem_addr = {tbl_combined_index, 1'b0};
 
     pba_mem_rd_en = 1'b0;
     pba_mem_wr_en = 1'b0;
-    // Shift by 6 = log2(64): pba_mem rows are 64 bits, so the row
-    // address is the combined index with the low 6 bits stripped off.
+    // FIX: PBA rows are 64 bits wide, so the address should be the combined
+    // index shifted right by 6 (log2 64), not 5. The prior default used >>5
+    // which mis-addressed the PBA every other row.
     pba_mem_addr = tbl_combined_index >> 6;
     pba_mem_wr_data = 0;
 
     irq_index_next = irq_index_reg;
-    irq_function_id_next = irq_function_id_reg;
+    irq_function_id_next = irq_function_id_reg; // Scott
 
     vec_addr_next = vec_addr_reg;
     vec_data_next = vec_data_reg;
@@ -361,13 +1568,14 @@ always @* begin
     tlp_hdr[109:108] = 2'b00; // attr
     tlp_hdr[107:106] = 3'b000; // AT
     tlp_hdr[105:96] = 10'd1; // length
-    // DW 1
-    // Requester ID: bus+dev from the high byte of the requester_id input,
-    // function from the latched irq_function_id_reg. The parent is
-    // expected to drive requester_id with { bus_num, 5'd0, 3'd0 }; this
-    // module overwrites the function field per interrupt.
+
+    // FIX: use the latched full 8-bit function id directly for the TLP
+    // requester ID function field, instead of deriving it by shifting
+    // irq_index_reg. This avoids the fragile off-by-one shift and
+    // preserves the full 8 bits when the hard IP expects them.
     func_id[7:0] = irq_function_id_reg;
-    tlp_hdr[95:80] = {requester_id[15:8], func_id};
+    tlp_hdr[95:80] = {requester_id[15:8], func_id}; // requester ID
+
     tlp_hdr[79:72] = 8'd0; // tag
     tlp_hdr[71:68] = 4'b0000; // last BE
     tlp_hdr[67:64] = 4'b1111; // first BE
@@ -390,13 +1598,16 @@ always @* begin
             if (irq_valid && irq_ready) begin
                 // new request
                 irq_ready_next = 1'b0;
-                // Capture the full FUNCTION_ID_WIDTH function id so it is
-                // available later for the TLP requester ID. Only the low
-                // F_COUNT_WIDTH bits are used to address tbl_mem/pba_mem.
+                // FIX: carry the FULL FUNCTION_ID_WIDTH-bit function id
+                // into the combined index, not just the low F_COUNT_WIDTH bits.
+                // Truncation here was the root cause of misrouted VF interrupts.
                 irq_index_next = {irq_function_id, irq_index};
                 irq_function_id_next = irq_function_id;
 
                 tbl_mem_rd_en = 1'b1;
+                // Address the table with the truncated-to-F_COUNT_WIDTH
+                // function id plus the irq_index. Tbl memory is sized for
+                // NUM_FUNCS = 2**F_COUNT_WIDTH functions.
                 tbl_mem_addr = {irq_function_id[F_COUNT_WIDTH-1:0], irq_index, 1'b0};
 
                 pba_mem_rd_en = 1'b1;
@@ -423,12 +1634,13 @@ always @* begin
                         // at least one bit set in current group, move to next index
                         irq_index_next = irq_index_reg + 1'b1;
                     end else begin
-                        // No bits set in the current 64-vector group; advance
-                        // to the next group. Mask clears the low 6 bits
-                        // (within-row) and preserves the upper function-id
-                        // bits, so the scan can cross function boundaries
-                        // naturally as the index increments through the
-                        // combined namespace.
+                        // FIX: move to the next 64-bit PBA group while
+                        // preserving the upper function-id bits of the
+                        // combined index. Prior code used
+                        // {IRQ_INDEX_WIDTH{1'b1}} << 6 which, with
+                        // IRQ_INDEX_WIDTH=6, shifted all bits out and
+                        // yielded zero — effectively jumping to the
+                        // start of function 0 every time.
                         irq_index_next = (irq_index_reg &
                             ~{{(COMBINED_INDEX_WIDTH-6){1'b0}}, 6'h3F}) + 7'd64;
                     end
@@ -462,8 +1674,6 @@ always @* begin
             end else begin
                 // set PBA bit
                 pba_mem_wr_en = 1'b1;
-                // 64'h1 (not bare 1) so the shift is well-defined for
-                // bit positions in [32, 63]; bare 1 is a 32-bit literal.
                 pba_mem_wr_data = pba_mem_rd_data_reg |
                     (64'h1 << (irq_index_within_func & 6'h3F));
                 irq_ready_next = 1'b1;
@@ -478,7 +1688,7 @@ always @* begin
 
                 tx_wr_req_tlp_valid_next = 1'b1;
 
-                // clear PBA bit (see 64'h1 note above)
+                // clear PBA bit
                 pba_mem_wr_en = 1'b1;
                 pba_mem_wr_data = pba_mem_rd_data_reg &
                     ~(64'h1 << (irq_index_within_func & 6'h3F));
@@ -530,7 +1740,7 @@ always @(posedge clk) begin
         tx_wr_req_tlp_valid_reg <= 1'b0;
 	end else begin
 	    irq_index_reg <= irq_index_next;
-        irq_function_id_reg <= irq_function_id_next;
+        irq_function_id_reg <= irq_function_id_next; // Scott
 	end
 end
 

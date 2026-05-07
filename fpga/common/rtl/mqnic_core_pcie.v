@@ -1289,16 +1289,16 @@ wire [AXIL_MSIX_ADDR_WIDTH-1:0] axil_msix_awaddr_translated;
 wire [AXIL_MSIX_ADDR_WIDTH-1:0] axil_msix_araddr_translated;
 wire [FUNCTION_ID_WIDTH-1:0] axil_msix_read_function_id; 
 wire [FUNCTION_ID_WIDTH-1:0] axil_msix_write_function_id;
-
 // Scott
 resource_translator #(
-    .TOTAL_RESOURCES(2**($clog2(F_COUNT) + IRQ_INDEX_WIDTH)),
+    .TOTAL_RESOURCES(2**($clog2(F_COUNT) + IRQ_INDEX_WIDTH + 1)),
     .FUNCTION_ID_WIDTH(FUNCTION_ID_WIDTH),
     .F_COUNT(F_COUNT),
-    .RESOURCE_BIT_WIDTH(32'd4), // 4 bits per MSI-X entry
+    .RESOURCE_BIT_WIDTH(32'd3), // 4-bits per cpl queue
     .AXIL_ADDR_WIDTH(AXIL_MSIX_ADDR_WIDTH)
 )
 pcie_msix_resource_translator (
+
     .input_write_address(axil_msix_awaddr),
     .input_write_function_id(axil_msix_awuser),
 
