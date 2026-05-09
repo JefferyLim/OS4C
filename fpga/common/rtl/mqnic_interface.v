@@ -117,7 +117,7 @@ module mqnic_interface #
     // Streaming interface configuration (direct, async)
     parameter AXIS_DATA_WIDTH = 512,
     parameter AXIS_KEEP_WIDTH = AXIS_DATA_WIDTH/8,
-    parameter AXIS_TX_USER_WIDTH = TX_TAG_WIDTH + 1,
+    parameter AXIS_TX_USER_WIDTH = FUNCTION_ID_WIDTH + TX_TAG_WIDTH + 1,
     parameter AXIS_RX_USER_WIDTH = (PTP_TS_ENABLE ? PTP_TS_WIDTH : 0) + 1,
     parameter AXIS_RX_USE_READY = 0,
     parameter AXIS_TX_PIPELINE = 0,

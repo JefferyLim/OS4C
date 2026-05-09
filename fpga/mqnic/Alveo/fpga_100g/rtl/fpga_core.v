@@ -160,7 +160,7 @@ module fpga_core #
     parameter AXIS_ETH_DATA_WIDTH = 512,
     parameter AXIS_ETH_KEEP_WIDTH = AXIS_ETH_DATA_WIDTH/8,
     parameter AXIS_ETH_SYNC_DATA_WIDTH = AXIS_ETH_DATA_WIDTH,
-    parameter AXIS_ETH_TX_USER_WIDTH = TX_TAG_WIDTH + 1,
+    parameter AXIS_ETH_TX_USER_WIDTH = FUNCTION_ID_WIDTH + TX_TAG_WIDTH + 1,
     parameter AXIS_ETH_RX_USER_WIDTH = (PTP_TS_ENABLE ? PTP_TS_WIDTH : 0) + 1,
     parameter AXIS_ETH_TX_PIPELINE = 4,
     parameter AXIS_ETH_TX_FIFO_PIPELINE = 4,
@@ -890,7 +890,7 @@ wire [QSFP_CNT*PTP_TS_WIDTH-1:0]              qsfp_rx_ptp_time_int;
 generate
 
 for (n = 0; n < QSFP_CNT; n = n + 1) begin
-    assign qsfp_tx_axis_tuser_int[n*AXIS_ETH_TX_USER_WIDTH +: AXIS_ETH_TX_USER_WIDTH] = qsfp_tx_axis_tuser[n*(16+1) +: 16+1];
+    assign qsfp_tx_axis_tuser[n*(TX_TAG_WIDTH + 1) +: TX_TAG_WIDTH + 1] = qsfp_tx_axis_tuser_int[n*AXIS_ETH_TX_USER_WIDTH +: TX_TAG_WIDTH + 1];
     assign qsfp_tx_ptp_time[n*80 +: 80] = qsfp_tx_ptp_time_int[n*PTP_TS_WIDTH +: PTP_TS_WIDTH] >> 16;
     assign qsfp_tx_ptp_ts_int[n*PTP_TS_WIDTH +: PTP_TS_WIDTH] = {qsfp_tx_ptp_ts[n*80 +: 80], 16'd0};
 
@@ -932,7 +932,7 @@ mqnic_port_map_mac_axis_inst (
     .m_axis_mac_tx_tvalid(qsfp_tx_axis_tvalid),
     .m_axis_mac_tx_tready(qsfp_tx_axis_tready),
     .m_axis_mac_tx_tlast(qsfp_tx_axis_tlast),
-    .m_axis_mac_tx_tuser(qsfp_tx_axis_tuser),
+    .m_axis_mac_tx_tuser(qsfp_tx_axis_tuser_int),
 
     .s_axis_mac_tx_ptp_ts(qsfp_tx_ptp_ts_int),
     .s_axis_mac_tx_ptp_ts_tag(qsfp_tx_ptp_ts_tag),

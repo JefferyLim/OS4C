@@ -18,6 +18,9 @@ module mqnic_interface_tx #
     // Structural configuration
     parameter PORTS = 1,
 
+    //SRIOV config
+    parameter FUNCTION_ID_WIDTH = 8, // Scott
+
     // PTP configuration
     parameter PTP_TS_WIDTH = 96,
 
@@ -67,10 +70,8 @@ module mqnic_interface_tx #
     parameter AXIS_KEEP_WIDTH = AXIS_DATA_WIDTH/8,
     parameter AXIS_TX_ID_WIDTH = TX_QUEUE_INDEX_WIDTH,
     parameter AXIS_TX_DEST_WIDTH = $clog2(PORTS)+4,
-    parameter AXIS_TX_USER_WIDTH = TX_TAG_WIDTH + 1,
+    parameter AXIS_TX_USER_WIDTH = FUNCTION_ID_WIDTH + TX_TAG_WIDTH + 1
 
-    //SRIOV config
-    parameter FUNCTION_ID_WIDTH = 8 // Scott
 )
 (
     input  wire                                         clk,

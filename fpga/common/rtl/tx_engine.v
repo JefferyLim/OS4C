@@ -67,6 +67,8 @@ module tx_engine #
     parameter PTP_TS_ENABLE = 1,
     // PTP timestamp width
     parameter PTP_TS_WIDTH = 96,
+    // SRIOV Function ID Width
+    parameter FUNCTION_ID_WIDTH = 8, // Scott
     // Transmit tag width
     parameter TX_TAG_WIDTH = 16,
     // Enable TX checksum offload
@@ -76,9 +78,7 @@ module tx_engine #
     // AXI stream tdest signal width
     parameter AXIS_TX_DEST_WIDTH = $clog2(PORTS)+4,
     // AXI stream tuser signal width
-    parameter AXIS_TX_USER_WIDTH = TX_TAG_WIDTH + 1,
-    // SRIOV Function ID Width
-    parameter FUNCTION_ID_WIDTH = 8 // Scott
+    parameter AXIS_TX_USER_WIDTH = TX_TAG_WIDTH + 1
 )
 (
     input  wire                             clk,
@@ -737,6 +737,7 @@ always @* begin
             m_axis_tx_desc_user_next[1+TX_TAG_WIDTH-1 +: 1] = 1'b1;
             m_axis_tx_desc_user_next[1 +: TX_TAG_WIDTH-1] = desc_table_tx_start_ptr_reg & DESC_PTR_MASK;
             m_axis_tx_desc_user_next[0 +: 1] = 1'b0;
+            m_axis_tx_desc_user_next[TX_TAG_WIDTH+1 +: FUNCTION_ID_WIDTH] = desc_table_function_id[desc_table_tx_start_ptr_reg & DESC_PTR_MASK];
             m_axis_tx_desc_valid_next = 1'b1;
 
             // send TX checksum command

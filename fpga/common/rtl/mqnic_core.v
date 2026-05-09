@@ -190,7 +190,7 @@ module mqnic_core #
     parameter AXIS_KEEP_WIDTH = AXIS_DATA_WIDTH/8,
     parameter AXIS_SYNC_DATA_WIDTH = AXIS_DATA_WIDTH,
     parameter AXIS_IF_DATA_WIDTH = AXIS_SYNC_DATA_WIDTH*2**$clog2(PORTS_PER_IF),
-    parameter AXIS_TX_USER_WIDTH = TX_TAG_WIDTH + 1,
+    parameter AXIS_TX_USER_WIDTH = FUNCTION_ID_WIDTH + TX_TAG_WIDTH + 1,
     parameter AXIS_RX_USER_WIDTH = (PTP_TS_ENABLE ? PTP_TS_WIDTH : 0) + 1,
     parameter AXIS_RX_USE_READY = 0,
     parameter AXIS_TX_PIPELINE = 0,
@@ -3795,6 +3795,9 @@ if (APP_ENABLE) begin : app
         .SCHED_PER_IF(SCHED_PER_IF),
 
         .PORT_COUNT(PORT_COUNT),
+
+        .FUNCTION_ID_WIDTH(FUNCTION_ID_WIDTH),
+        .F_COUNT(F_COUNT),
 
         // Clock configuration
         .CLK_PERIOD_NS_NUM(CLK_PERIOD_NS_NUM),
